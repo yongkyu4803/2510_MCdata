@@ -23,27 +23,7 @@ PROJECT_ROOT = Path(__file__).parent
 
 @st.cache_data(ttl=300)  # 5분 캐시
 def load_latest_data():
-    """최신 처리된 데이터 로드 또는 API에서 수집"""
-    processed_dir = PROJECT_ROOT / "data" / "processed"
-
-    # 1. 기존 데이터 파일 확인
-    if processed_dir.exists():
-        json_files = list(processed_dir.glob("*_metrics.json"))
-
-        if json_files:
-            latest_file = max(json_files, key=lambda f: f.stat().st_mtime)
-
-            with open(latest_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-
-            df = pd.DataFrame(data)
-
-            if 'order_date' in df.columns:
-                df['order_date'] = pd.to_datetime(df['order_date'])
-
-            return df
-
-    # 2. 데이터 파일이 없으면 API에서 직접 수집
+    """API에서 최신 데이터 수집"""
     try:
         from src.collector.api_client import MusicowAPIClient
         from src.collector.data_collector import DataCollector
@@ -177,22 +157,21 @@ def main():
     st.markdown("---")
 
     # 데이터 로드
-    with st.spinner("🔄 데이터 로딩 중..."):
+    with st.spinner("🔄 뮤직카우 API에서 최신 데이터 수집 중... (최대 30초 소요)"):
         df = load_latest_data()
 
     if df is None or df.empty:
         st.error("⚠️ 데이터를 수집할 수 없습니다. API 연결을 확인해주세요.")
         st.info("""
-        **로컬 실행 시**:
-        ```bash
-        python test_integration.py
-        ```
-
-        **Streamlit Cloud**:
-        - 앱이 자동으로 뮤직카우 API에서 데이터를 수집합니다.
-        - 네트워크 오류일 경우 잠시 후 새로고침해주세요.
+        **문제 해결**:
+        - 뮤직카우 API가 일시적으로 응답하지 않을 수 있습니다.
+        - 잠시 후 페이지를 새로고침해주세요.
+        - 문제가 지속되면 [뮤직카우 사이트](https://www.musicow.com)를 확인해주세요.
         """)
         return
+
+    # 데이터 수집 완료 메시지
+    st.success(f"✅ 최신 데이터 {len(df):,}건 수집 완료!")
 
     # 필터 적용 여부 선택
     use_filter = st.sidebar.checkbox("🔍 필터 사용", value=False)
