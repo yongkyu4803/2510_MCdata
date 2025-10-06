@@ -21,33 +21,63 @@ st.set_page_config(
 PROJECT_ROOT = Path(__file__).parent
 
 
-@st.cache_data(ttl=60)  # 1분 캐시
+@st.cache_data(ttl=300)  # 5분 캐시
 def load_latest_data():
-    """최신 처리된 데이터 로드"""
+    """최신 처리된 데이터 로드 또는 API에서 수집"""
     processed_dir = PROJECT_ROOT / "data" / "processed"
 
-    if not processed_dir.exists():
+    # 1. 기존 데이터 파일 확인
+    if processed_dir.exists():
+        json_files = list(processed_dir.glob("*_metrics.json"))
+
+        if json_files:
+            latest_file = max(json_files, key=lambda f: f.stat().st_mtime)
+
+            with open(latest_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            df = pd.DataFrame(data)
+
+            if 'order_date' in df.columns:
+                df['order_date'] = pd.to_datetime(df['order_date'])
+
+            return df
+
+    # 2. 데이터 파일이 없으면 API에서 직접 수집
+    try:
+        from src.collector.api_client import MusicowAPIClient
+        from src.collector.data_collector import DataCollector
+        from src.calculator.metrics_engine import MetricsEngine
+
+        # API 클라이언트 초기화
+        api_client = MusicowAPIClient()
+
+        # 데이터 수집
+        collector = DataCollector(api_client)
+        raw_data = collector.collect_orders()
+
+        if not raw_data:
+            return None
+
+        # 지표 계산
+        engine = MetricsEngine()
+        metrics_data = []
+
+        for order in raw_data:
+            metrics = engine.calculate_all_metrics(order)
+            metrics_data.append(metrics)
+
+        # DataFrame 변환
+        df = pd.DataFrame(metrics_data)
+
+        if 'order_date' in df.columns:
+            df['order_date'] = pd.to_datetime(df['order_date'])
+
+        return df
+
+    except Exception as e:
+        st.error(f"데이터 수집 중 오류 발생: {str(e)}")
         return None
-
-    # 최신 metrics 파일 찾기
-    json_files = list(processed_dir.glob("*_metrics.json"))
-
-    if not json_files:
-        return None
-
-    latest_file = max(json_files, key=lambda f: f.stat().st_mtime)
-
-    with open(latest_file, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-
-    # DataFrame으로 변환
-    df = pd.DataFrame(data)
-
-    # 날짜 변환
-    if 'order_date' in df.columns:
-        df['order_date'] = pd.to_datetime(df['order_date'])
-
-    return df
 
 
 def calculate_summary_stats(df):
@@ -147,11 +177,21 @@ def main():
     st.markdown("---")
 
     # 데이터 로드
-    df = load_latest_data()
+    with st.spinner("🔄 데이터 로딩 중..."):
+        df = load_latest_data()
 
     if df is None or df.empty:
-        st.error("⚠️ 데이터를 찾을 수 없습니다. 먼저 데이터 수집을 실행하세요.")
-        st.code("python test_integration.py")
+        st.error("⚠️ 데이터를 수집할 수 없습니다. API 연결을 확인해주세요.")
+        st.info("""
+        **로컬 실행 시**:
+        ```bash
+        python test_integration.py
+        ```
+
+        **Streamlit Cloud**:
+        - 앱이 자동으로 뮤직카우 API에서 데이터를 수집합니다.
+        - 네트워크 오류일 경우 잠시 후 새로고침해주세요.
+        """)
         return
 
     # 필터 적용 여부 선택
