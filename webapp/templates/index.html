@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎵 뮤직카우 시장 분석 대시보드</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --primary-color: #6366f1;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --info-color: #3b82f6;
+        }
+
+        body {
+            background-color: #f8f9fa;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .stat-card {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .table-card {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .badge-signal {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-bottom: 20px;
+        }
+
+        .refresh-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+
+        .spinner-border-sm {
+            width: 1rem;
+            height: 1rem;
+        }
+
+        .positive {
+            color: var(--success-color);
+        }
+
+        .negative {
+            color: var(--danger-color);
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-dark mb-4">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">
+                <i class="fas fa-music"></i> 뮤직카우 시장 분석 대시보드
+            </span>
+            <div class="d-flex align-items-center gap-3">
+                <button class="btn btn-sm btn-outline-light" data-bs-toggle="modal" data-bs-target="#metricsGuideModal">
+                    <i class="fas fa-question-circle"></i> 지표 가이드
+                </button>
+                <span class="text-white">
+                    <i class="fas fa-clock"></i>
+                    <span id="last-update">데이터 로딩 중...</span>
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <!-- Summary Stats -->
+        <div class="row mb-4">
+            <div class="col-md-3 mb-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="text-muted mb-1">총 주문 수</p>
+                                <h3 class="mb-0" id="total-orders">-</h3>
+                            </div>
+                            <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3 mb-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="text-muted mb-1">평균 괴리율</p>
+                                <h3 class="mb-0" id="avg-premium">-</h3>
+                            </div>
+                            <div class="stat-icon bg-warning bg-opacity-10 text-warning">
+                                <i class="fas fa-percent"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3 mb-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="text-muted mb-1">평균 수익률</p>
+                                <h3 class="mb-0" id="avg-yield">-</h3>
+                            </div>
+                            <div class="stat-icon bg-success bg-opacity-10 text-success">
+                                <i class="fas fa-arrow-trend-up"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3 mb-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="text-muted mb-1">평균 유동성</p>
+                                <h3 class="mb-0" id="avg-liquidity">-</h3>
+                            </div>
+                            <div class="stat-icon bg-info bg-opacity-10 text-info">
+                                <i class="fas fa-droplet"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="row mb-4">
+            <div class="col-md-6 mb-3">
+                <div class="card table-card">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="fas fa-signal"></i> 시그널 분포</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="signalChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-3">
+                <div class="card table-card">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="fas fa-chart-bar"></i> 괴리율 분포</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="premiumChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tables Row -->
+        <div class="row mb-4">
+            <div class="col-md-4 mb-3">
+                <div class="card table-card">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="fas fa-fire text-danger"></i> 고수익률 Top 10</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th>곡명</th>
+                                        <th class="text-end">수익률</th>
+                                        <th class="text-end">괴리율</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="top-yield-table">
+                                    <tr>
+                                        <td colspan="3" class="text-center text-muted">
+                                            <div class="spinner-border spinner-border-sm" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 mb-3">
+                <div class="card table-card">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="fas fa-arrow-down text-success"></i> 저평가 Top 10</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th>곡명</th>
+                                        <th class="text-end">괴리율</th>
+                                        <th class="text-end">수익률</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="undervalued-table">
+                                    <tr>
+                                        <td colspan="3" class="text-center text-muted">
+                                            <div class="spinner-border spinner-border-sm" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 mb-3">
+                <div class="card table-card">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="fas fa-droplet text-info"></i> 고유동성 Top 10</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th>곡명</th>
+                                        <th class="text-end">유동성</th>
+                                        <th class="text-end">괴리율</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="high-liquidity-table">
+                                    <tr>
+                                        <td colspan="3" class="text-center text-muted">
+                                            <div class="spinner-border spinner-border-sm" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Refresh Button -->
+    <button class="btn btn-primary refresh-btn" onclick="loadAllData()" title="새로고침">
+        <i class="fas fa-sync-alt"></i>
+    </button>
+
+    <!-- Metrics Guide Modal -->
+    <div class="modal fade" id="metricsGuideModal" tabindex="-1" aria-labelledby="metricsGuideModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="metricsGuideModalLabel">
+                        <i class="fas fa-graduation-cap"></i> 지표 이해 가이드
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <h6 class="text-primary"><i class="fas fa-percent"></i> 1. 괴리율 (Premium Rate)</h6>
+                    <ul>
+                        <li><strong>정의</strong>: 주문가가 최근가 대비 얼마나 차이 나는지</li>
+                        <li><strong>계산</strong>: <code>(주문가 - 최근가) / 최근가 × 100</code></li>
+                        <li><strong>음수(-)</strong>: 저평가 (주문가 &lt; 최근가)</li>
+                        <li><strong>양수(+)</strong>: 고평가 (주문가 &gt; 최근가)</li>
+                        <li><strong>추천</strong>: -20% ~ -10% (적당한 저평가)</li>
+                    </ul>
+
+                    <hr>
+
+                    <h6 class="text-success"><i class="fas fa-arrow-trend-up"></i> 2. 정규화 수익률 (Normalized Yield)</h6>
+                    <ul>
+                        <li><strong>정의</strong>: 투자금 대비 예상 연간 수익률</li>
+                        <li><strong>계산</strong>: <code>(저작권료율 × 기준단가) / 주문가 × 100</code></li>
+                        <li><strong>10% 이상</strong>: 고수익률 (우수)</li>
+                        <li><strong>5~10%</strong>: 보통 수익률 (양호)</li>
+                        <li><strong>추천</strong>: 7~12% (안정적 수익)</li>
+                    </ul>
+
+                    <hr>
+
+                    <h6 class="text-info"><i class="fas fa-droplet"></i> 3. 유동성 점수 (Liquidity Score)</h6>
+                    <ul>
+                        <li><strong>정의</strong>: 얼마나 쉽게 사고팔 수 있는지 (0~100점)</li>
+                        <li><strong>구성</strong>: 스프레드(40%) + 깊이(30%) + 빈도(30%)</li>
+                        <li><strong>80~100점</strong>: 초고유동성 (즉시 거래)</li>
+                        <li><strong>60~80점</strong>: 고유동성 (빠른 거래)</li>
+                        <li><strong>40~60점</strong>: 중유동성 (거래 가능)</li>
+                        <li><strong>추천</strong>: 40점 이상</li>
+                    </ul>
+
+                    <hr>
+
+                    <h6 class="text-warning"><i class="fas fa-signal"></i> 시그널 해석</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>시그널</th>
+                                    <th>의미</th>
+                                    <th>전략</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="badge bg-success">저평가</span></td>
+                                    <td>싸고 거래 활발</td>
+                                    <td>적극 매수 검토</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="badge" style="background-color: #059669;">저평가, 유동성↓</span></td>
+                                    <td>싸지만 팔기 어려움</td>
+                                    <td>장기 투자</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="badge bg-danger">고평가</span></td>
+                                    <td>비싸고 거래 활발</td>
+                                    <td>매도 검토</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="badge bg-primary">유동성↑</span></td>
+                                    <td>거래 매우 활발</td>
+                                    <td>단기 투자 적합</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="badge bg-warning text-dark">유동성↓</span></td>
+                                    <td>거래 어려움</td>
+                                    <td>비추천</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="badge" style="background-color: #dc2626;">주의</span></td>
+                                    <td>비싸고 팔기 어려움</td>
+                                    <td>투자 금지</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="badge bg-secondary">보통</span></td>
+                                    <td>특별한 특징 없음</td>
+                                    <td>중립</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <hr>
+
+                    <h6 class="text-danger"><i class="fas fa-exclamation-triangle"></i> 투자 체크리스트</h6>
+                    <p><strong>매수 전 확인</strong></p>
+                    <ul>
+                        <li>✅ 괴리율 -10% 이하</li>
+                        <li>✅ 수익률 5% 이상</li>
+                        <li>✅ 유동성 30점 이상</li>
+                        <li>✅ 시그널이 "주의" 아님</li>
+                    </ul>
+
+                    <div class="alert alert-warning" role="alert">
+                        <strong><i class="fas fa-exclamation-circle"></i> 주의사항</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>베타 서비스 데이터 (불일치 가능)</li>
+                            <li>최근가는 과거 데이터일 수 있음</li>
+                            <li>저작권료는 과거 실적 기반</li>
+                            <li>모든 투자 판단은 본인 책임</li>
+                        </ul>
+                    </div>
+
+                    <div class="alert alert-info" role="alert">
+                        <i class="fas fa-book"></i>
+                        상세 가이드는
+                        <a href="https://github.com/your-repo/METRICS_GUIDE.md" target="_blank" class="alert-link">
+                            METRICS_GUIDE.md
+                        </a>
+                        문서를 참고하세요.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
