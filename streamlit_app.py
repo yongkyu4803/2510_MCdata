@@ -23,29 +23,27 @@ PROJECT_ROOT = Path(__file__).parent
 
 @st.cache_data(ttl=300)  # 5분 캐시
 def load_latest_data():
-    """API에서 최신 데이터 수집"""
+    """뮤직카우 API에서 최신 데이터 수집 및 지표 계산"""
     try:
-        from src.collector.api_client import MusicowAPIClient
-        from src.collector.data_collector import DataCollector
+        import requests
         from src.calculator.metrics_engine import MetricsEngine
 
-        # API 클라이언트 초기화
-        api_client = MusicowAPIClient()
+        # 뮤직카우 API에서 데이터 가져오기
+        api_url = "https://data.musicow.com/files/v1/market/orders.json"
+        response = requests.get(api_url, timeout=30)
+        response.raise_for_status()
 
-        # 데이터 수집
-        collector = DataCollector(api_client)
-        raw_data = collector.collect_orders()
+        raw_data = response.json()
 
         if not raw_data:
             return None
 
-        # 지표 계산
+        # 지표 계산 (배치 처리)
         engine = MetricsEngine()
-        metrics_data = []
+        metrics_data = engine.calculate_batch_metrics(raw_data)
 
-        for order in raw_data:
-            metrics = engine.calculate_all_metrics(order)
-            metrics_data.append(metrics)
+        if not metrics_data:
+            return None
 
         # DataFrame 변환
         df = pd.DataFrame(metrics_data)
@@ -55,8 +53,11 @@ def load_latest_data():
 
         return df
 
+    except requests.exceptions.RequestException as e:
+        st.error(f"API 연결 오류: {str(e)}")
+        return None
     except Exception as e:
-        st.error(f"데이터 수집 중 오류 발생: {str(e)}")
+        st.error(f"데이터 처리 중 오류 발생: {str(e)}")
         return None
 
 
