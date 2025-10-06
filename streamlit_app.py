@@ -620,11 +620,12 @@ def main():
         st.subheader("⏰ 시간대별 주문 패턴 분석")
         st.markdown("**언제 주문이 많이 나오는지, 어떤 시간대가 유리한지 분석**")
 
-        # 시간대 데이터 추출
-        filtered_df['시간대'] = pd.to_datetime(filtered_df['order_date']).dt.hour
+        # 시간대 데이터 추출 (복사본 생성으로 SettingWithCopyWarning 방지)
+        time_df = filtered_df.copy()
+        time_df['시간대'] = pd.to_datetime(time_df['order_date']).dt.hour
 
         # 시간대별 주문 수
-        hourly_counts = filtered_df.groupby('시간대').size().reset_index(name='주문수')
+        hourly_counts = time_df.groupby('시간대').size().reset_index(name='주문수')
 
         col1, col2 = st.columns(2)
 
@@ -642,7 +643,7 @@ def main():
 
         with col2:
             st.markdown("### 📈 시간대별 평균 괴리율")
-            hourly_premium = filtered_df.groupby('시간대')['premium'].mean().reset_index()
+            hourly_premium = time_df.groupby('시간대')['premium'].mean().reset_index()
             fig = px.line(
                 hourly_premium,
                 x='시간대',
@@ -658,7 +659,7 @@ def main():
         st.markdown("---")
         st.markdown("### 🔄 시간대별 구매/판매 비율")
 
-        hourly_type = filtered_df.groupby(['시간대', 'order_type']).size().reset_index(name='개수')
+        hourly_type = time_df.groupby(['시간대', 'order_type']).size().reset_index(name='개수')
         hourly_type_pivot = hourly_type.pivot(index='시간대', columns='order_type', values='개수').fillna(0)
 
         fig = go.Figure()
@@ -677,7 +678,7 @@ def main():
 
         # 시간대별 평균 수익률
         st.markdown("### 💰 시간대별 평균 수익률")
-        hourly_yield = filtered_df.groupby('시간대')['normalized_yield'].mean().reset_index()
+        hourly_yield = time_df.groupby('시간대')['normalized_yield'].mean().reset_index()
 
         fig = px.bar(
             hourly_yield,
