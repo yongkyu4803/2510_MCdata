@@ -6,7 +6,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import json
 
 # 페이지 설정
@@ -19,6 +19,13 @@ st.set_page_config(
 
 # 프로젝트 루트 경로
 PROJECT_ROOT = Path(__file__).parent
+
+# KST 타임존 설정
+KST = timezone(timedelta(hours=9))
+
+def get_kst_now():
+    """현재 KST 시간 반환"""
+    return datetime.now(KST)
 
 
 @st.cache_data(ttl=300)  # 5분 캐시
@@ -225,7 +232,7 @@ def main():
 
     with st.sidebar:
         st.markdown("---")
-        st.info(f"📅 마지막 업데이트\n\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        st.info(f"📅 마지막 업데이트 (KST)\n\n{get_kst_now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     # 필터 적용
     filtered_df = df[
@@ -762,7 +769,7 @@ def main():
         st.download_button(
             label="📥 CSV 다운로드",
             data=csv,
-            file_name=f"musicow_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            file_name=f"musicow_data_{get_kst_now().strftime('%Y%m%d_%H%M%S')}.csv",
             mime="text/csv"
         )
 
