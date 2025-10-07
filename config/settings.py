@@ -38,7 +38,7 @@ LIQUIDITY_LOW_SCORE = 30  # 유동성 낮음 기준
 REFERENCE_PRICE = 10000  # 정규화 수익률 계산 기준가
 
 # Alert Configuration
-ALERT_PREMIUM_THRESHOLD = 3.0  # 괴리율 알림 기준 (%)
+ALERT_PREMIUM_THRESHOLD = 3.0  # 프리미엄율 알림 기준 (%)
 ALERT_YIELD_CHANGE = 2.0  # 수익률 변동 알림 기준 (%)
 ALERT_TIME_WINDOW = 10  # 변동 감지 시간 윈도우 (분)
 

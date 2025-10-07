@@ -56,7 +56,7 @@ class MarkdownReporter:
             report_lines.extend(self._generate_top_yield(orders))
             report_lines.append("")
 
-            # 괴리율 상/하위
+            # 프리미엄율 상/하위
             report_lines.extend(self._generate_premium_analysis(orders))
             report_lines.append("")
 
@@ -122,7 +122,7 @@ class MarkdownReporter:
 
         if premiums:
             avg_premium = sum(premiums) / len(premiums)
-            lines.append(f"- **평균 괴리율**: {avg_premium:.2f}%")
+            lines.append(f"- **평균 프리미엄율**: {avg_premium:.2f}%")
 
         if yields:
             avg_yield = sum(yields) / len(yields)
@@ -156,7 +156,7 @@ class MarkdownReporter:
         )[:self.top_n]
 
         if top_yields:
-            lines.append("| 순위 | 곡명 | 아티스트 | 수익률 | 괴리율 | 유동성 | 시그널 |")
+            lines.append("| 순위 | 곡명 | 아티스트 | 수익률 | 프리미엄율 | 유동성 | 시그널 |")
             lines.append("|------|------|----------|--------|--------|--------|--------|")
 
             for i, order in enumerate(top_yields, 1):
@@ -180,8 +180,8 @@ class MarkdownReporter:
         return lines
 
     def _generate_premium_analysis(self, orders: List[Dict[str, Any]]) -> List[str]:
-        """괴리율 분석 섹션 생성"""
-        lines = [f"## 📈 괴리율 분석 (상위/하위 {self.top_n}개)"]
+        """프리미엄율 분석 섹션 생성"""
+        lines = [f"## 📈 프리미엄율 분석 (상위/하위 {self.top_n}개)"]
         lines.append("")
 
         # 대기 중인 주문만 필터링
@@ -190,19 +190,19 @@ class MarkdownReporter:
             if o.get("order_status") == "대기" and o.get("premium") is not None
         ]
 
-        # 괴리율 기준 정렬
+        # 프리미엄율 기준 정렬
         sorted_by_premium = sorted(
             waiting_orders,
             key=lambda x: x.get("premium", 0)
         )
 
         # 하위 N개 (저평가)
-        lines.append(f"### 🔽 저평가 주문 (괴리율 낮은 순)")
+        lines.append(f"### 🔽 저평가 주문 (프리미엄율 낮은 순)")
         lines.append("")
 
         low_premium = sorted_by_premium[:self.top_n]
         if low_premium:
-            lines.append("| 순위 | 곡명 | 아티스트 | 괴리율 | 수익률 | 시그널 |")
+            lines.append("| 순위 | 곡명 | 아티스트 | 프리미엄율 | 수익률 | 시그널 |")
             lines.append("|------|------|----------|--------|--------|--------|")
 
             for i, order in enumerate(low_premium, 1):
@@ -222,12 +222,12 @@ class MarkdownReporter:
         lines.append("")
 
         # 상위 N개 (고평가)
-        lines.append(f"### 🔼 고평가 주문 (괴리율 높은 순)")
+        lines.append(f"### 🔼 고평가 주문 (프리미엄율 높은 순)")
         lines.append("")
 
         high_premium = sorted_by_premium[-self.top_n:][::-1]
         if high_premium:
-            lines.append("| 순위 | 곡명 | 아티스트 | 괴리율 | 수익률 | 시그널 |")
+            lines.append("| 순위 | 곡명 | 아티스트 | 프리미엄율 | 수익률 | 시그널 |")
             lines.append("|------|------|----------|--------|--------|--------|")
 
             for i, order in enumerate(high_premium, 1):
@@ -267,7 +267,7 @@ class MarkdownReporter:
 
         high_liquidity = sorted_by_liquidity[:self.top_n]
         if high_liquidity:
-            lines.append("| 순위 | 곡명 | 아티스트 | 유동성 | 괴리율 | 시그널 |")
+            lines.append("| 순위 | 곡명 | 아티스트 | 유동성 | 프리미엄율 | 시그널 |")
             lines.append("|------|------|----------|--------|--------|--------|")
 
             for i, order in enumerate(high_liquidity, 1):

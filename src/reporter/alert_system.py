@@ -46,7 +46,7 @@ class AlertSystem:
         """
         alerts = []
 
-        # 1. 괴리율 알림
+        # 1. 프리미엄율 알림
         premium_alerts = self._check_premium_alerts(orders)
         alerts.extend(premium_alerts)
 
@@ -69,9 +69,9 @@ class AlertSystem:
 
     def _check_premium_alerts(self, orders: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        괴리율 알림 체크
+        프리미엄율 알림 체크
 
-        조건: 괴리율 > ±3%
+        조건: 프리미엄율 > ±3%
 
         Args:
             orders: 주문 데이터
@@ -90,7 +90,7 @@ class AlertSystem:
             if premium is None:
                 continue
 
-            # 괴리율 기준 체크
+            # 프리미엄율 기준 체크
             if abs(premium) > self.alert_premium_threshold:
                 # 중복 체크
                 order_no = order.get("order_no")
@@ -98,7 +98,7 @@ class AlertSystem:
                     alert = {
                         "type": "premium",
                         "severity": "high" if abs(premium) > 5 else "medium",
-                        "message": f"괴리율 {premium:.2f}% - {order.get('song_name', 'Unknown')}",
+                        "message": f"프리미엄율 {premium:.2f}% - {order.get('song_name', 'Unknown')}",
                         "order": order,
                         "timestamp": datetime.now().isoformat()
                     }
@@ -289,7 +289,7 @@ class AlertSystem:
                 order = alert.get("order", {})
                 if order:
                     print(f"   - 가격: {order.get('order_price', 0):,}원")
-                    print(f"   - 괴리율: {order.get('premium', 0):.2f}%")
+                    print(f"   - 프리미엄율: {order.get('premium', 0):.2f}%")
                     print(f"   - 수익률: {order.get('normalized_yield', 0):.2f}%")
 
             print("=" * 60)

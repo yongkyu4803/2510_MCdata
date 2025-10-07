@@ -124,7 +124,7 @@ def api_undervalued():
     if not orders:
         return jsonify({"error": "데이터를 찾을 수 없습니다"}), 404
 
-    # 구매 주문만 필터링하고 괴리율 기준 정렬 (낮은 순)
+    # 구매 주문만 필터링하고 프리미엄율 기준 정렬 (낮은 순)
     buy_orders = [o for o in orders if o.get("order_type") == "구매"]
     sorted_orders = sorted(
         buy_orders,
@@ -180,13 +180,13 @@ def api_signals():
 
 @app.route('/api/premium-distribution')
 def api_premium_distribution():
-    """괴리율 분포 API"""
+    """프리미엄율 분포 API"""
     orders = load_latest_data()
 
     if not orders:
         return jsonify({"error": "데이터를 찾을 수 없습니다"}), 404
 
-    # 괴리율 구간별 분포
+    # 프리미엄율 구간별 분포
     ranges = {
         "매우 저평가 (< -20%)": 0,
         "저평가 (-20% ~ -10%)": 0,

@@ -45,12 +45,12 @@ def test_metrics_engine():
     print(f"  - 최근 가격: {sample_order['recent_price']:,}원")
     print(f"  - 수익률: {sample_order['order_royalty_rate']*100:.1f}%")
 
-    # 괴리율 계산
+    # 프리미엄율 계산
     premium = engine.calculate_premium(
         sample_order['order_price'],
         sample_order['recent_price']
     )
-    print(f"\n  괴리율: {premium:.2f}%")
+    print(f"\n  프리미엄율: {premium:.2f}%")
 
     # 정규화 수익률 계산
     normalized_yield = engine.calculate_normalized_yield(
@@ -91,13 +91,13 @@ def test_metrics_engine():
     for signal, count in sorted(signal_counts.items(), key=lambda x: x[1], reverse=True):
         print(f"  - {signal}: {count}개 ({count/len(results)*100:.1f}%)")
 
-    # 괴리율 통계
+    # 프리미엄율 통계
     premiums = [r.get("premium") for r in results if r.get("premium") is not None]
     if premiums:
         avg_premium = sum(premiums) / len(premiums)
         max_premium = max(premiums)
         min_premium = min(premiums)
-        print(f"\n괴리율 통계:")
+        print(f"\n프리미엄율 통계:")
         print(f"  - 평균: {avg_premium:.2f}%")
         print(f"  - 최대: {max_premium:.2f}%")
         print(f"  - 최소: {min_premium:.2f}%")
@@ -126,24 +126,24 @@ def test_metrics_engine():
     print("\n7. 주요 주문 (상위 5개):")
     print("-" * 40)
 
-    # 괴리율 기준 정렬
+    # 프리미엄율 기준 정렬
     sorted_by_premium = sorted(
         [r for r in results if r.get("premium") is not None],
         key=lambda x: x.get("premium", 0),
         reverse=True
     )
 
-    print("\n[괴리율 상위 5개 - 고평가]")
+    print("\n[프리미엄율 상위 5개 - 고평가]")
     for i, order in enumerate(sorted_by_premium[:5], 1):
         print(f"{i}. {order['song_name'][:20]:20} | "
-              f"괴리율: {order['premium']:>6.2f}% | "
+              f"프리미엄율: {order['premium']:>6.2f}% | "
               f"유동성: {order['liquidity_score']:>4.1f} | "
               f"시그널: {order['signal']}")
 
-    print("\n[괴리율 하위 5개 - 저평가]")
+    print("\n[프리미엄율 하위 5개 - 저평가]")
     for i, order in enumerate(sorted_by_premium[-5:], 1):
         print(f"{i}. {order['song_name'][:20]:20} | "
-              f"괴리율: {order['premium']:>6.2f}% | "
+              f"프리미엄율: {order['premium']:>6.2f}% | "
               f"유동성: {order['liquidity_score']:>4.1f} | "
               f"시그널: {order['signal']}")
 
@@ -191,7 +191,7 @@ def test_individual_metrics():
         },
     ]
 
-    print("\n괴리율 및 정규화 수익률 계산 테스트:")
+    print("\n프리미엄율 및 정규화 수익률 계산 테스트:")
     print("-" * 60)
 
     for i, case in enumerate(test_cases, 1):
@@ -204,14 +204,14 @@ def test_individual_metrics():
         )
 
         print(f"  주문가: {case['order_price']:,}원, 최근가: {case['recent_price']:,}원")
-        print(f"  괴리율: {premium:.2f}% (예상: {case['expected_premium']:.2f}%)")
+        print(f"  프리미엄율: {premium:.2f}% (예상: {case['expected_premium']:.2f}%)")
         print(f"  정규화 수익률: {normalized_yield:.2f}% (예상: {case['expected_yield']:.2f}%)")
 
         # 검증
         if abs(premium - case['expected_premium']) < 0.1:
-            print(f"  ✅ 괴리율 계산 정확")
+            print(f"  ✅ 프리미엄율 계산 정확")
         else:
-            print(f"  ❌ 괴리율 계산 오차 발생")
+            print(f"  ❌ 프리미엄율 계산 오차 발생")
 
         if abs(normalized_yield - case['expected_yield']) < 0.1:
             print(f"  ✅ 정규화 수익률 계산 정확")
@@ -234,7 +234,7 @@ def test_individual_metrics():
     for i, case in enumerate(signal_test_cases, 1):
         signal = engine.generate_signal(case["premium"], case["liquidity"])
         status = "✅" if signal == case["expected"] else "❌"
-        print(f"{i}. 괴리율: {case['premium']:>6.1f}%, 유동성: {case['liquidity']:>4.1f} "
+        print(f"{i}. 프리미엄율: {case['premium']:>6.1f}%, 유동성: {case['liquidity']:>4.1f} "
               f"→ {signal:10} (예상: {case['expected']:10}) {status}")
 
     print("\n" + "=" * 60)

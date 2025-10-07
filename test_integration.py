@@ -92,7 +92,7 @@ def test_full_pipeline():
         avg_premium = sum(premiums) / len(premiums) if premiums else 0
         avg_yield = sum(yields) / len(yields) if yields else 0
 
-        print(f"\n  평균 괴리율: {avg_premium:.2f}%")
+        print(f"\n  평균 프리미엄율: {avg_premium:.2f}%")
         print(f"  평균 수익률: {avg_yield:.2f}%")
 
         # 지표 데이터 저장
@@ -321,7 +321,7 @@ def test_data_quality():
     checks["완전성"] = completeness
     print(f"  완전한 데이터: {complete_count:,}/{len(orders):,} ({completeness:.1f}%)")
 
-    # 2. 정확성 체크 (괴리율 재계산)
+    # 2. 정확성 체크 (프리미엄율 재계산)
     print("\n2. 계산 정확성")
     accurate_count = 0
     for order in orders:

@@ -102,7 +102,7 @@ def main():
         st.markdown("""
         ### 🎯 핵심 지표 3가지
 
-        #### 1. 괴리율 (Premium Rate)
+        #### 1. 프리미엄율 (Premium Rate)
         - **정의**: 주문가가 최근가 대비 얼마나 차이 나는지
         - **계산**: `(주문가 - 최근가) / 최근가 × 100`
         - **음수(-)**: 저평가 (주문가 < 최근가)
@@ -141,7 +141,7 @@ def main():
         ### 💡 투자 체크리스트
 
         ✅ **매수 전 확인**
-        - [ ] 괴리율 -10% 이하
+        - [ ] 프리미엄율 -10% 이하
         - [ ] 수익률 5% 이상
         - [ ] 유동성 30점 이상
         - [ ] 시그널이 "주의" 아님
@@ -203,12 +203,12 @@ def main():
                 default=all_signals
             )
 
-            # 괴리율 범위
+            # 프리미엄율 범위
             premium_min = float(df['premium'].min())
             premium_max = float(df['premium'].max())
 
             premium_range = st.slider(
-                "괴리율 범위 (%)",
+                "프리미엄율 범위 (%)",
                 min_value=premium_min,
                 max_value=premium_max,
                 value=(premium_min, premium_max),
@@ -267,7 +267,7 @@ def main():
 
     with col2:
         st.metric(
-            label="📈 평균 괴리율",
+            label="📈 평균 프리미엄율",
             value=f"{stats.get('avg_premium', 0):.2f}%",
             delta=f"{'고평가' if stats.get('avg_premium', 0) > 0 else '저평가'}"
         )
@@ -355,15 +355,15 @@ def main():
             st.warning("필터링된 데이터가 없습니다.")
 
     with col2:
-        st.subheader("📊 괴리율 분포")
+        st.subheader("📊 프리미엄율 분포")
 
         if len(filtered_df) > 0:
-            # 괴리율 구간 생성
+            # 프리미엄율 구간 생성
             bins = [-float('inf'), -20, -10, 10, 20, float('inf')]
             labels = ['매우 저평가\n(< -20%)', '저평가\n(-20~-10%)',
                       '적정\n(-10~10%)', '고평가\n(10~20%)', '매우 고평가\n(> 20%)']
 
-            # 괴리율 구간 분류
+            # 프리미엄율 구간 분류
             premium_ranges = pd.cut(
                 filtered_df['premium'],
                 bins=bins,
@@ -390,7 +390,7 @@ def main():
             ])
             fig.update_layout(
                 height=350,
-                xaxis_title="괴리율 구간",
+                xaxis_title="프리미엄율 구간",
                 yaxis_title="주문 수",
                 showlegend=False,
                 yaxis=dict(rangemode='tozero')
@@ -424,7 +424,7 @@ def main():
 
         # 컬럼명 변경
         top_yield.columns = ['곡명', '아티스트', '주문가', '최근가',
-                             '수익률(%)', '괴리율(%)', '유동성', '시그널']
+                             '수익률(%)', '프리미엄율(%)', '유동성', '시그널']
 
         # 스타일 적용
         st.dataframe(
@@ -432,7 +432,7 @@ def main():
                 '주문가': '{:,.0f}원',
                 '최근가': '{:,.0f}원',
                 '수익률(%)': '{:.2f}%',
-                '괴리율(%)': '{:.2f}%',
+                '프리미엄율(%)': '{:.2f}%',
                 '유동성': '{:.1f}'
             }).background_gradient(subset=['수익률(%)'], cmap='Greens'),
             hide_index=True,
@@ -451,17 +451,17 @@ def main():
 
         # 컬럼명 변경
         undervalued.columns = ['곡명', '아티스트', '주문가', '최근가',
-                               '괴리율(%)', '수익률(%)', '유동성', '시그널']
+                               '프리미엄율(%)', '수익률(%)', '유동성', '시그널']
 
         # 스타일 적용
         st.dataframe(
             undervalued.style.format({
                 '주문가': '{:,.0f}원',
                 '최근가': '{:,.0f}원',
-                '괴리율(%)': '{:.2f}%',
+                '프리미엄율(%)': '{:.2f}%',
                 '수익률(%)': '{:.2f}%',
                 '유동성': '{:.1f}'
-            }).background_gradient(subset=['괴리율(%)'], cmap='Greens_r'),
+            }).background_gradient(subset=['프리미엄율(%)'], cmap='Greens_r'),
             hide_index=True,
             use_container_width=True
         )
@@ -476,7 +476,7 @@ def main():
 
         # 컬럼명 변경
         high_liquidity.columns = ['곡명', '아티스트', '주문가', '최근가',
-                                  '유동성', '괴리율(%)', '수익률(%)', '시그널']
+                                  '유동성', '프리미엄율(%)', '수익률(%)', '시그널']
 
         # 스타일 적용
         st.dataframe(
@@ -484,7 +484,7 @@ def main():
                 '주문가': '{:,.0f}원',
                 '최근가': '{:,.0f}원',
                 '유동성': '{:.1f}',
-                '괴리율(%)': '{:.2f}%',
+                '프리미엄율(%)': '{:.2f}%',
                 '수익률(%)': '{:.2f}%'
             }).background_gradient(subset=['유동성'], cmap='Blues'),
             hide_index=True,
@@ -513,7 +513,7 @@ def main():
                 color='signal',
                 hover_data=['song_name', 'song_artist', 'order_price'],
                 labels={
-                    'premium': '괴리율 (%)',
+                    'premium': '프리미엄율 (%)',
                     'normalized_yield': '정규화 수익률 (%)',
                     'liquidity_score': '유동성 점수'
                 },
@@ -526,7 +526,7 @@ def main():
             fig.update_layout(height=400)
             st.plotly_chart(fig, use_container_width=True, key='value_scatter')
 
-            # 종합 점수 계산 (괴리율 절대값 + 수익률 + 유동성/10)
+            # 종합 점수 계산 (프리미엄율 절대값 + 수익률 + 유동성/10)
             value_opportunities['투자점수'] = (
                 abs(value_opportunities['premium']) * 0.3 +
                 value_opportunities['normalized_yield'] * 0.5 +
@@ -540,13 +540,13 @@ def main():
                  'normalized_yield', 'liquidity_score', '투자점수', 'signal']
             ]
 
-            top20.columns = ['곡명', '아티스트', '주문가', '괴리율(%)',
+            top20.columns = ['곡명', '아티스트', '주문가', '프리미엄율(%)',
                             '수익률(%)', '유동성', '투자점수', '시그널']
 
             st.dataframe(
                 top20.style.format({
                     '주문가': '{:,.0f}원',
-                    '괴리율(%)': '{:.2f}%',
+                    '프리미엄율(%)': '{:.2f}%',
                     '수익률(%)': '{:.2f}%',
                     '유동성': '{:.1f}',
                     '투자점수': '{:.1f}'
@@ -555,7 +555,7 @@ def main():
                 use_container_width=True
             )
 
-            st.info(f"💡 **발견**: {len(value_opportunities)}개의 저평가 고수익 기회 (괴리율 < -10%, 수익률 > 7%, 유동성 > 30점)")
+            st.info(f"💡 **발견**: {len(value_opportunities)}개의 저평가 고수익 기회 (프리미엄율 < -10%, 수익률 > 7%, 유동성 > 30점)")
         else:
             st.warning("⚠️ 현재 가치 투자 조건을 만족하는 주문이 없습니다.")
 
@@ -662,14 +662,14 @@ def main():
             st.plotly_chart(fig, use_container_width=True, key='hourly_orders')
 
         with col2:
-            st.markdown("### 📈 시간대별 평균 괴리율")
+            st.markdown("### 📈 시간대별 평균 프리미엄율")
             hourly_premium = time_df.groupby('시간대')['premium'].mean().reset_index()
             fig = px.line(
                 hourly_premium,
                 x='시간대',
                 y='premium',
                 markers=True,
-                labels={'시간대': '시간 (0-23시)', 'premium': '평균 괴리율 (%)'}
+                labels={'시간대': '시간 (0-23시)', 'premium': '평균 프리미엄율 (%)'}
             )
             fig.add_hline(y=0, line_dash="dash", line_color="red", annotation_text="적정가")
             fig.update_layout(height=300)
@@ -719,7 +719,7 @@ def main():
         st.info(f"""
         💡 **시간대 인사이트**:
         - 📊 가장 활발한 시간: **{peak_hour}시** (주문 {hourly_counts.loc[hourly_counts['시간대']==peak_hour, '주문수'].values[0]}건)
-        - 📉 가장 저평가 시간: **{best_premium_hour}시** (평균 괴리율 {hourly_premium.loc[hourly_premium['시간대']==best_premium_hour, 'premium'].values[0]:.2f}%)
+        - 📉 가장 저평가 시간: **{best_premium_hour}시** (평균 프리미엄율 {hourly_premium.loc[hourly_premium['시간대']==best_premium_hour, 'premium'].values[0]:.2f}%)
         - 💰 가장 고수익 시간: **{best_yield_hour}시** (평균 수익률 {hourly_yield.loc[hourly_yield['시간대']==best_yield_hour, 'normalized_yield'].values[0]:.2f}%)
         """)
 
@@ -734,7 +734,7 @@ def main():
 
         # 컬럼명 변경
         display_df.columns = ['주문시간', '곡명', '아티스트', '타입', '주문가',
-                              '최근가', '수익률(%)', '괴리율(%)', '유동성', '시그널']
+                              '최근가', '수익률(%)', '프리미엄율(%)', '유동성', '시그널']
 
         # 검색 기능
         search = st.text_input("🔍 곡명/아티스트 검색", "")
@@ -749,7 +749,7 @@ def main():
                 '주문가': '{:,.0f}원',
                 '최근가': '{:,.0f}원',
                 '수익률(%)': '{:.2f}%',
-                '괴리율(%)': '{:.2f}%',
+                '프리미엄율(%)': '{:.2f}%',
                 '유동성': '{:.1f}'
             }),
             hide_index=True,

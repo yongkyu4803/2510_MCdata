@@ -75,10 +75,10 @@ def test_full_dataset():
         percentage = count / len(results) * 100
         print(f"  {signal:20} : {count:4}개 ({percentage:5.1f}%)")
 
-    # 괴리율 분석
+    # 프리미엄율 분석
     premiums = [r.get("premium") for r in results if r.get("premium") is not None]
     if premiums:
-        print("\n[괴리율 통계]")
+        print("\n[프리미엄율 통계]")
         print(f"  평균: {sum(premiums)/len(premiums):>7.2f}%")
         print(f"  최대: {max(premiums):>7.2f}%")
         print(f"  최소: {min(premiums):>7.2f}%")
@@ -115,7 +115,7 @@ def test_full_dataset():
     print("\n5. 주요 주문 분석...")
     print("-" * 40)
 
-    # 저평가 주문 (괴리율 낮은 순)
+    # 저평가 주문 (프리미엄율 낮은 순)
     print("\n[저평가 주문 Top 10]")
     low_premium = sorted(
         [r for r in results if r.get("premium") is not None and r.get("order_status") == "대기"],

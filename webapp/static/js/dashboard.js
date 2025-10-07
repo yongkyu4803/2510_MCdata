@@ -202,7 +202,7 @@ async function loadSignals() {
     }
 }
 
-// 괴리율 분포 차트 로드
+// 프리미엄율 분포 차트 로드
 async function loadPremiumDistribution() {
     try {
         const response = await fetch('/api/premium-distribution');
@@ -269,7 +269,7 @@ async function loadPremiumDistribution() {
         });
 
     } catch (error) {
-        console.error('괴리율 분포 차트 로드 실패:', error);
+        console.error('프리미엄율 분포 차트 로드 실패:', error);
     }
 }
 

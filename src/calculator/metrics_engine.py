@@ -26,16 +26,16 @@ class MetricsEngine:
 
     def calculate_premium(self, order_price: float, recent_price: float) -> Optional[float]:
         """
-        괴리율 계산
+        프리미엄율 계산
 
-        괴리율 (%) = (order_price - recent_price) / recent_price × 100
+        프리미엄율 (%) = (order_price - recent_price) / recent_price × 100
 
         Args:
             order_price: 주문 가격
             recent_price: 최근 체결가
 
         Returns:
-            괴리율 (%) 또는 None
+            프리미엄율 (%) 또는 None
         """
         try:
             if recent_price == 0:
@@ -277,15 +277,15 @@ class MetricsEngine:
         시그널 생성
 
         조건:
-        - 저평가: 괴리율 < -10%
-        - 고평가: 괴리율 > 10%
+        - 저평가: 프리미엄율 < -10%
+        - 고평가: 프리미엄율 > 10%
         - 유동성↑: 유동성 점수 > 80
         - 유동성↓: 유동성 점수 < 30
         - 주의: 고평가 + 유동성↓
         - 보통: 그 외
 
         Args:
-            premium: 괴리율 (%)
+            premium: 프리미엄율 (%)
             liquidity_score: 유동성 점수
 
         Returns:
@@ -293,7 +293,7 @@ class MetricsEngine:
         """
         signals = []
 
-        # 괴리율 기반 시그널
+        # 프리미엄율 기반 시그널
         if premium is not None:
             if premium < PREMIUM_THRESHOLD_LOW:
                 signals.append("저평가")
