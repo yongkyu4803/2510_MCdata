@@ -559,36 +559,54 @@ def main():
         st.subheader("💹 가격 모멘텀 분석")
         st.markdown("**매수/매도 주문가 괴리를 통한 가격 추세 추정**")
 
-        # 곡별 모멘텀 계산
-        from src.calculator.metrics_engine import MetricsEngine
-        engine = MetricsEngine()
+        try:
+            # 곡별 모멘텀 계산
+            from src.calculator.metrics_engine import MetricsEngine
+            engine = MetricsEngine()
 
-        # 대기 중인 주문만 사용
-        waiting_orders = filtered_df[filtered_df['order_status'] == '대기'].to_dict('records')
+            # 대기 중인 주문만 사용
+            waiting_orders = filtered_df[filtered_df['order_status'] == '대기'].to_dict('records')
 
-        # 고유 곡 목록
-        unique_songs = filtered_df['song_name'].unique()
+            # 고유 곡 목록
+            unique_songs = filtered_df['song_name'].unique()
 
-        momentum_data = []
-        for song in unique_songs:
-            momentum = engine.calculate_price_momentum(waiting_orders, song)
+            momentum_data = []
+            for song in unique_songs:
+                momentum = engine.calculate_price_momentum(waiting_orders, song)
 
-            # 해당 곡 정보 가져오기
-            song_info = filtered_df[filtered_df['song_name'] == song].iloc[0]
+                # 해당 곡 정보 가져오기
+                song_info = filtered_df[filtered_df['song_name'] == song].iloc[0]
 
-            momentum_data.append({
-                'song_name': song,
-                'song_artist': song_info['song_artist'],
-                'recent_price': song_info['recent_price'],
-                'momentum_score': momentum['momentum_score'],
-                'buy_pressure': momentum['buy_pressure'],
-                'sell_pressure': momentum['sell_pressure'],
-                'waiting_count': momentum['waiting_count'],
-                'price_min': momentum['price_range'][0],
-                'price_max': momentum['price_range'][1]
-            })
+                momentum_data.append({
+                    'song_name': song,
+                    'song_artist': song_info['song_artist'],
+                    'recent_price': song_info['recent_price'],
+                    'momentum_score': momentum['momentum_score'],
+                    'buy_pressure': momentum['buy_pressure'],
+                    'sell_pressure': momentum['sell_pressure'],
+                    'waiting_count': momentum['waiting_count'],
+                    'price_min': momentum['price_range'][0],
+                    'price_max': momentum['price_range'][1]
+                })
 
-        momentum_df = pd.DataFrame(momentum_data)
+            momentum_df = pd.DataFrame(momentum_data)
+        except AttributeError as e:
+            st.error(f"""
+            ⚠️ **가격 모멘텀 기능 업데이트 중**
+
+            현재 Streamlit Cloud에서 최신 코드를 반영하는 중입니다.
+            잠시 후 페이지를 새로고침해주세요.
+
+            해결 방법:
+            1. 브라우저에서 **Ctrl+Shift+R** (또는 Cmd+Shift+R) 로 강제 새로고침
+            2. Streamlit Cloud 우측 하단 **"Manage app"** → **"Reboot app"** 클릭
+
+            기술 정보: `{str(e)}`
+            """)
+            momentum_df = pd.DataFrame()
+        except Exception as e:
+            st.error(f"모멘텀 계산 중 오류 발생: {str(e)}")
+            momentum_df = pd.DataFrame()
 
         if len(momentum_df) > 0:
             # 모멘텀 절대값 기준 상위 20개
