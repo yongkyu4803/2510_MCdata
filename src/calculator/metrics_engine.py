@@ -299,37 +299,29 @@ class MetricsEngine:
         시그널 생성
 
         조건:
-        - 저평가: 최근가가 공정가치 대비 -10% 이하 (저평가된 시장)
-        - 고평가: 최근가가 공정가치 대비 +10% 이상 (고평가된 시장)
+        - 저평가: 스프레드율 -10% 이하 (주문가가 최근가보다 10% 이상 낮음)
+        - 고평가: 스프레드율 +10% 이상 (주문가가 최근가보다 10% 이상 높음)
         - 유동성↑: 유동성 점수 > 80
         - 유동성↓: 유동성 점수 < 30
         - 주의: 고평가 + 유동성↓
         - 보통: 그 외
 
         Args:
-            spread_rate: 스프레드율 (%) - 하위호환성 유지
+            spread_rate: 스프레드율 (%)
             liquidity_score: 유동성 점수
-            recent_price: 최근 체결가
-            fair_value: 공정가치
+            recent_price: 최근 체결가 (사용 안 함)
+            fair_value: 공정가치 (사용 안 함)
 
         Returns:
             시그널 문자열
         """
         signals = []
 
-        # 최근가 기준 평가 (공정가치 대비)
-        if recent_price is not None and fair_value is not None and fair_value > 0:
-            valuation_ratio = ((recent_price - fair_value) / fair_value) * 100
-
-            if valuation_ratio < PREMIUM_THRESHOLD_LOW:  # -10% 이하
+        # 스프레드율 기준 평가
+        if spread_rate is not None:
+            if spread_rate < PREMIUM_THRESHOLD_LOW:  # -10% 이하
                 signals.append("저평가")
-            elif valuation_ratio > PREMIUM_THRESHOLD_HIGH:  # +10% 이상
-                signals.append("고평가")
-        # 하위호환성: 공정가치가 없으면 기존 스프레드율 방식 사용
-        elif spread_rate is not None:
-            if spread_rate < PREMIUM_THRESHOLD_LOW:
-                signals.append("저평가")
-            elif spread_rate > PREMIUM_THRESHOLD_HIGH:
+            elif spread_rate > PREMIUM_THRESHOLD_HIGH:  # +10% 이상
                 signals.append("고평가")
 
         # 유동성 기반 시그널

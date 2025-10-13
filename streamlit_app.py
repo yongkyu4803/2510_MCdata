@@ -460,7 +460,7 @@ def main():
 
     # 탭으로 테이블 분리
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
-        "💹 작은 스프레드",
+        "⚡ 즉시 체결",
         "🔥 고수익률 Top 10",
         "📉 저평가 Top 10",
         "💧 고유동성 Top 10",
@@ -471,32 +471,32 @@ def main():
     ])
 
     with tab1:
-        st.subheader("💹 작은 스프레드 주문")
-        st.markdown("**매수/매도 가격 차이가 작아 즉시 체결 가능성이 높은 주문**")
+        st.subheader("⚡ 즉시 체결 가능 주문")
+        st.markdown("**지금 바로 거래 가능한 주문 (시장가와 ±5% 이내)**")
 
-        # 스프레드가 작은 주문 필터링 (절대값 5% 이내)
-        small_spread = filtered_df[
+        # 즉시 체결 가능 주문 필터링 (스프레드 절대값 5% 이내)
+        instant_match = filtered_df[
             (abs(filtered_df['spread_rate']) <= 5.0) &
             (filtered_df['order_status'] == '대기')
         ].copy()
 
-        if len(small_spread) > 0:
+        if len(instant_match) > 0:
             # 스프레드 절대값 기준 정렬
-            small_spread['abs_spread'] = abs(small_spread['spread_rate'])
-            small_spread_sorted = small_spread.nsmallest(20, 'abs_spread')
+            instant_match['abs_spread'] = abs(instant_match['spread_rate'])
+            instant_match_sorted = instant_match.nsmallest(20, 'abs_spread')
 
             # 요약 정보
             col1, col2, col3, col4 = st.columns(4)
             with col1:
-                st.metric("발견된 주문", f"{len(small_spread):,}개")
+                st.metric("발견된 주문", f"{len(instant_match):,}개")
             with col2:
-                avg_spread = small_spread['spread_rate'].mean()
+                avg_spread = instant_match['spread_rate'].mean()
                 st.metric("평균 스프레드", f"{avg_spread:.2f}%")
             with col3:
-                buy_count = len(small_spread[small_spread['order_type'] == '구매'])
+                buy_count = len(instant_match[instant_match['order_type'] == '구매'])
                 st.metric("매수 주문", f"{buy_count}개")
             with col4:
-                sell_count = len(small_spread[small_spread['order_type'] == '판매'])
+                sell_count = len(instant_match[instant_match['order_type'] == '판매'])
                 st.metric("매도 주문", f"{sell_count}개")
 
             st.markdown("---")
@@ -507,7 +507,7 @@ def main():
             with col1:
                 st.markdown("### 📊 스프레드 분포")
                 fig = px.histogram(
-                    small_spread,
+                    instant_match,
                     x='spread_rate',
                     nbins=20,
                     labels={'spread_rate': '스프레드율 (%)'},
@@ -515,22 +515,22 @@ def main():
                 )
                 fig.add_vline(x=0, line_dash="dash", line_color="red", annotation_text="최근가")
                 fig.update_layout(height=300, showlegend=False)
-                st.plotly_chart(fig, use_container_width=True, key='small_spread_hist')
+                st.plotly_chart(fig, use_container_width=True, key='instant_match_hist')
 
             with col2:
                 st.markdown("### 🔄 주문 타입별 분포")
-                type_counts = small_spread['order_type'].value_counts()
+                type_counts = instant_match['order_type'].value_counts()
                 fig = px.pie(
                     values=type_counts.values,
                     names=type_counts.index,
                     color_discrete_map={'구매': '#10b981', '판매': '#ef4444'}
                 )
                 fig.update_layout(height=300)
-                st.plotly_chart(fig, use_container_width=True, key='small_spread_pie')
+                st.plotly_chart(fig, use_container_width=True, key='instant_match_pie')
 
             # TOP 20 테이블
-            st.markdown("### 🏆 TOP 20 작은 스프레드 주문")
-            display_cols = small_spread_sorted[
+            st.markdown("### 🏆 TOP 20 즉시 체결 주문")
+            display_cols = instant_match_sorted[
                 ['song_name', 'song_artist', 'order_type', 'order_price', 'recent_price',
                  'spread_rate', 'expected_yield', 'liquidity_score', 'signal']
             ]
@@ -550,9 +550,9 @@ def main():
                 use_container_width=True
             )
 
-            st.info(f"💡 **발견**: {len(small_spread)}개의 작은 스프레드 주문 (±5% 이내, 즉시 체결 가능성 높음)")
+            st.info(f"💡 **발견**: {len(instant_match)}개의 즉시 체결 가능 주문 (±5% 이내, 지금 바로 거래 가능)")
         else:
-            st.warning("⚠️ 현재 작은 스프레드 조건을 만족하는 주문이 없습니다.")
+            st.warning("⚠️ 현재 즉시 체결 조건을 만족하는 주문이 없습니다.")
 
     with tab2:
         st.subheader("🔥 고수익률 주문 (구매)")
