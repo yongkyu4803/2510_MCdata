@@ -609,9 +609,8 @@ def main():
             momentum_df = pd.DataFrame()
 
         if len(momentum_df) > 0:
-            # 모멘텀 절대값 기준 상위 20개
-            momentum_df['abs_momentum'] = abs(momentum_df['momentum_score'])
-            top_momentum = momentum_df.nlargest(20, 'abs_momentum')
+            # 모멘텀 점수 기준 상위 20개 (상승 추세 가능성 높은 순)
+            top_momentum = momentum_df.nlargest(20, 'momentum_score')
 
             # 요약 정보
             col1, col2, col3, col4 = st.columns(4)
@@ -665,7 +664,7 @@ def main():
                 st.plotly_chart(fig, use_container_width=True, key='momentum_pie')
 
             # TOP 20 테이블
-            st.markdown("### 🏆 TOP 20 모멘텀 주문")
+            st.markdown("### 🏆 TOP 20 상승 모멘텀 주문")
             display_cols = top_momentum[[
                 'song_name', 'song_artist', 'recent_price', 'momentum_score',
                 'buy_pressure', 'sell_pressure', 'waiting_count', 'price_min', 'price_max'
