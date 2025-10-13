@@ -78,8 +78,8 @@ def calculate_summary_stats(df):
     sell_orders = len(df[df['order_type'] == '판매'])
     waiting_orders = len(df[df['order_status'] == '대기'])
 
-    avg_premium = df['premium'].mean()
-    avg_yield = df['normalized_yield'].mean()
+    avg_spread = df['spread_rate'].mean()
+    avg_yield = df['expected_yield'].mean()
     avg_liquidity = df['liquidity_score'].mean()
 
     # 시그널 분포
@@ -90,7 +90,7 @@ def calculate_summary_stats(df):
         "buy_orders": buy_orders,
         "sell_orders": sell_orders,
         "waiting_orders": waiting_orders,
-        "avg_premium": avg_premium,
+        "avg_spread": avg_spread,
         "avg_yield": avg_yield,
         "avg_liquidity": avg_liquidity,
         "signals": signals,
@@ -109,19 +109,24 @@ def main():
         st.markdown("""
         ### 🎯 핵심 지표 3가지
 
-        #### 1. 프리미엄율 (Premium Rate)
+        #### 1. 스프레드율 (Spread Rate)
         - **정의**: 주문가가 최근가 대비 얼마나 차이 나는지
         - **계산**: `(주문가 - 최근가) / 최근가 × 100`
         - **음수(-)**: 저평가 (주문가 < 최근가)
         - **양수(+)**: 고평가 (주문가 > 최근가)
         - **추천**: -20% ~ -10% (적당한 저평가)
 
-        #### 2. 정규화 수익률 (Normalized Yield)
+        #### 2. 예상 수익률 (Expected Yield)
         - **정의**: 투자금 대비 예상 연간 수익률
         - **계산**: `(저작권료율 × 기준단가) / 주문가 × 100`
         - **10% 이상**: 고수익률 (우수)
         - **5~10%**: 보통 수익률 (양호)
         - **추천**: 7~12% (안정적 수익)
+
+        **💡 기준단가란?**
+        - 저작권료 지급의 기준이 되는 단가
+        - 1개 조각당 1년간 받을 예상 저작권료 계산 기준
+        - 예시: 기준단가 10,000원 × 저작권료율 8% = 연간 800원 수익
 
         #### 3. 유동성 점수 (Liquidity Score)
         - **정의**: 얼마나 쉽게 사고팔 수 있는지 (0~100점)
@@ -148,7 +153,7 @@ def main():
         ### 💡 투자 체크리스트
 
         ✅ **매수 전 확인**
-        - [ ] 프리미엄율 -10% 이하
+        - [ ] 스프레드율 -10% 이하
         - [ ] 수익률 5% 이상
         - [ ] 유동성 30점 이상
         - [ ] 시그널이 "주의" 아님
@@ -210,17 +215,34 @@ def main():
                 default=all_signals
             )
 
-            # 프리미엄율 범위
-            premium_min = float(df['premium'].min())
-            premium_max = float(df['premium'].max())
+            # 스프레드율 범위
+            spread_min = float(df['spread_rate'].min())
+            spread_max = float(df['spread_rate'].max())
 
-            premium_range = st.slider(
-                "프리미엄율 범위 (%)",
-                min_value=premium_min,
-                max_value=premium_max,
-                value=(premium_min, premium_max),
+            spread_range = st.slider(
+                "스프레드율 범위 (%)",
+                min_value=spread_min,
+                max_value=spread_max,
+                value=(spread_min, spread_max),
                 step=1.0
             )
+
+            st.markdown("---")
+            st.subheader("📦 대량 주문 필터")
+
+            # 대량 주문 필터 활성화
+            enable_bulk_filter = st.checkbox("대량 주문만 보기", value=False)
+
+            if enable_bulk_filter:
+                # 곡별 대량 주문 기준 (동일 곡에 대한 대기 주문 수)
+                bulk_threshold = st.slider(
+                    "최소 주문 수 (곡별)",
+                    min_value=3,
+                    max_value=20,
+                    value=10,
+                    step=1,
+                    help="동일 곡에 대한 대기 주문이 이 수치 이상인 경우 대량 주문으로 간주"
+                )
     else:
         # 필터 미사용 시 전체 데이터 사용
         all_order_types = df['order_type'].unique().tolist()
@@ -228,7 +250,9 @@ def main():
 
         order_types = all_order_types
         signals = all_signals
-        premium_range = (float(df['premium'].min()), float(df['premium'].max()))
+        spread_range = (float(df['spread_rate'].min()), float(df['spread_rate'].max()))
+        enable_bulk_filter = False
+        bulk_threshold = 10
 
     with st.sidebar:
         st.markdown("---")
@@ -238,9 +262,24 @@ def main():
     filtered_df = df[
         (df['order_type'].isin(order_types)) &
         (df['signal'].isin(signals)) &
-        (df['premium'] >= premium_range[0]) &
-        (df['premium'] <= premium_range[1])
+        (df['spread_rate'] >= spread_range[0]) &
+        (df['spread_rate'] <= spread_range[1])
     ].copy()  # 복사본 생성으로 경고 방지
+
+    # 대량 주문 필터 적용
+    if enable_bulk_filter:
+        # 곡별 주문 수 계산 (대기 중인 주문만)
+        waiting_df = filtered_df[filtered_df['order_status'] == '대기']
+        song_counts = waiting_df['song_name'].value_counts()
+
+        # 임계값 이상인 곡만 선택
+        bulk_songs = song_counts[song_counts >= bulk_threshold].index.tolist()
+
+        # 대량 주문 곡만 필터링
+        filtered_df = filtered_df[filtered_df['song_name'].isin(bulk_songs)].copy()
+
+        # 대량 주문 정보 추가
+        filtered_df['order_count'] = filtered_df['song_name'].map(song_counts).fillna(0).astype(int)
 
     # 사이드바에 필터링 결과 표시
     with st.sidebar:
@@ -250,6 +289,13 @@ def main():
             value=f"{len(filtered_df):,}개",
             delta=f"{len(filtered_df)/len(df)*100:.1f}%" if len(df) > 0 else "0%"
         )
+
+        if enable_bulk_filter:
+            st.metric(
+                label="📦 대량 주문 곡 수",
+                value=f"{len(bulk_songs)}곡",
+                delta=f"평균 {song_counts.mean():.1f}건/곡"
+            )
 
     # 필터링된 데이터 확인
     if len(filtered_df) == 0:
@@ -274,9 +320,9 @@ def main():
 
     with col2:
         st.metric(
-            label="📈 평균 프리미엄율",
-            value=f"{stats.get('avg_premium', 0):.2f}%",
-            delta=f"{'고평가' if stats.get('avg_premium', 0) > 0 else '저평가'}"
+            label="📈 평균 스프레드율",
+            value=f"{stats.get('avg_spread', 0):.2f}%",
+            delta=f"{'고평가' if stats.get('avg_spread', 0) > 0 else '저평가'}"
         )
 
     with col3:
@@ -362,26 +408,26 @@ def main():
             st.warning("필터링된 데이터가 없습니다.")
 
     with col2:
-        st.subheader("📊 프리미엄율 분포")
+        st.subheader("📊 스프레드율 분포")
 
         if len(filtered_df) > 0:
-            # 프리미엄율 구간 생성
+            # 스프레드율 구간 생성
             bins = [-float('inf'), -20, -10, 10, 20, float('inf')]
             labels = ['매우 저평가\n(< -20%)', '저평가\n(-20~-10%)',
                       '적정\n(-10~10%)', '고평가\n(10~20%)', '매우 고평가\n(> 20%)']
 
-            # 프리미엄율 구간 분류
-            premium_ranges = pd.cut(
-                filtered_df['premium'],
+            # 스프레드율 구간 분류
+            spread_ranges = pd.cut(
+                filtered_df['spread_rate'],
                 bins=bins,
                 labels=labels
             )
 
-            premium_dist = premium_ranges.value_counts().reindex(labels, fill_value=0)
+            spread_dist = spread_ranges.value_counts().reindex(labels, fill_value=0)
 
             # 명시적으로 데이터 변환
-            x_values = premium_dist.index.tolist()
-            y_values = premium_dist.values.tolist()
+            x_values = spread_dist.index.tolist()
+            y_values = spread_dist.values.tolist()
             colors = ['#10b981', '#34d399', '#6b7280', '#fb923c', '#ef4444']
 
             # 바 차트
@@ -397,22 +443,23 @@ def main():
             ])
             fig.update_layout(
                 height=350,
-                xaxis_title="프리미엄율 구간",
+                xaxis_title="스프레드율 구간",
                 yaxis_title="주문 수",
                 showlegend=False,
                 yaxis=dict(rangemode='tozero')
             )
-            st.plotly_chart(fig, use_container_width=True, key='premium_chart')
+            st.plotly_chart(fig, use_container_width=True, key='spread_chart')
         else:
             st.warning("필터링된 데이터가 없습니다.")
 
     st.markdown("---")
 
     # 탭으로 테이블 분리
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
         "🔥 고수익률 Top 10",
         "📉 저평가 Top 10",
         "💧 고유동성 Top 10",
+        "💹 작은 스프레드",
         "🎯 가치 투자 기회",
         "📚 카테고리 분석",
         "⏰ 시간 패턴",
@@ -424,14 +471,14 @@ def main():
 
         # 구매 주문만 필터링
         buy_df = filtered_df[filtered_df['order_type'] == '구매']
-        top_yield = buy_df.nlargest(10, 'normalized_yield')[
+        top_yield = buy_df.nlargest(10, 'expected_yield')[
             ['song_name', 'song_artist', 'order_price', 'recent_price',
-             'normalized_yield', 'premium', 'liquidity_score', 'signal']
+             'expected_yield', 'spread_rate', 'liquidity_score', 'signal']
         ]
 
         # 컬럼명 변경
         top_yield.columns = ['곡명', '아티스트', '주문가', '최근가',
-                             '수익률(%)', '프리미엄율(%)', '유동성', '시그널']
+                             '수익률(%)', '스프레드율(%)', '유동성', '시그널']
 
         # 스타일 적용
         st.dataframe(
@@ -439,7 +486,7 @@ def main():
                 '주문가': '{:,.0f}원',
                 '최근가': '{:,.0f}원',
                 '수익률(%)': '{:.2f}%',
-                '프리미엄율(%)': '{:.2f}%',
+                '스프레드율(%)': '{:.2f}%',
                 '유동성': '{:.1f}'
             }).background_gradient(subset=['수익률(%)'], cmap='Greens'),
             hide_index=True,
@@ -451,24 +498,24 @@ def main():
 
         # 구매 주문만 필터링
         buy_df = filtered_df[filtered_df['order_type'] == '구매']
-        undervalued = buy_df.nsmallest(10, 'premium')[
+        undervalued = buy_df.nsmallest(10, 'spread_rate')[
             ['song_name', 'song_artist', 'order_price', 'recent_price',
-             'premium', 'normalized_yield', 'liquidity_score', 'signal']
+             'spread_rate', 'expected_yield', 'liquidity_score', 'signal']
         ]
 
         # 컬럼명 변경
         undervalued.columns = ['곡명', '아티스트', '주문가', '최근가',
-                               '프리미엄율(%)', '수익률(%)', '유동성', '시그널']
+                               '스프레드율(%)', '수익률(%)', '유동성', '시그널']
 
         # 스타일 적용
         st.dataframe(
             undervalued.style.format({
                 '주문가': '{:,.0f}원',
                 '최근가': '{:,.0f}원',
-                '프리미엄율(%)': '{:.2f}%',
+                '스프레드율(%)': '{:.2f}%',
                 '수익률(%)': '{:.2f}%',
                 '유동성': '{:.1f}'
-            }).background_gradient(subset=['프리미엄율(%)'], cmap='Greens_r'),
+            }).background_gradient(subset=['스프레드율(%)'], cmap='Greens_r'),
             hide_index=True,
             use_container_width=True
         )
@@ -478,12 +525,12 @@ def main():
 
         high_liquidity = filtered_df.nlargest(10, 'liquidity_score')[
             ['song_name', 'song_artist', 'order_price', 'recent_price',
-             'liquidity_score', 'premium', 'normalized_yield', 'signal']
+             'liquidity_score', 'spread_rate', 'expected_yield', 'signal']
         ]
 
         # 컬럼명 변경
         high_liquidity.columns = ['곡명', '아티스트', '주문가', '최근가',
-                                  '유동성', '프리미엄율(%)', '수익률(%)', '시그널']
+                                  '유동성', '스프레드율(%)', '수익률(%)', '시그널']
 
         # 스타일 적용
         st.dataframe(
@@ -491,7 +538,7 @@ def main():
                 '주문가': '{:,.0f}원',
                 '최근가': '{:,.0f}원',
                 '유동성': '{:.1f}',
-                '프리미엄율(%)': '{:.2f}%',
+                '스프레드율(%)': '{:.2f}%',
                 '수익률(%)': '{:.2f}%'
             }).background_gradient(subset=['유동성'], cmap='Blues'),
             hide_index=True,
@@ -499,13 +546,97 @@ def main():
         )
 
     with tab4:
+        st.subheader("💹 작은 스프레드 주문")
+        st.markdown("**매수/매도 가격 차이가 작아 즉시 체결 가능성이 높은 주문**")
+
+        # 스프레드가 작은 주문 필터링 (절대값 5% 이내)
+        small_spread = filtered_df[
+            (abs(filtered_df['spread_rate']) <= 5.0) &
+            (filtered_df['order_status'] == '대기')
+        ].copy()
+
+        if len(small_spread) > 0:
+            # 스프레드 절대값 기준 정렬
+            small_spread['abs_spread'] = abs(small_spread['spread_rate'])
+            small_spread_sorted = small_spread.nsmallest(20, 'abs_spread')
+
+            # 요약 정보
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("발견된 주문", f"{len(small_spread):,}개")
+            with col2:
+                avg_spread = small_spread['spread_rate'].mean()
+                st.metric("평균 스프레드", f"{avg_spread:.2f}%")
+            with col3:
+                buy_count = len(small_spread[small_spread['order_type'] == '구매'])
+                st.metric("매수 주문", f"{buy_count}개")
+            with col4:
+                sell_count = len(small_spread[small_spread['order_type'] == '판매'])
+                st.metric("매도 주문", f"{sell_count}개")
+
+            st.markdown("---")
+
+            # 스프레드 분포 차트
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.markdown("### 📊 스프레드 분포")
+                fig = px.histogram(
+                    small_spread,
+                    x='spread_rate',
+                    nbins=20,
+                    labels={'spread_rate': '스프레드율 (%)'},
+                    color_discrete_sequence=['#3b82f6']
+                )
+                fig.add_vline(x=0, line_dash="dash", line_color="red", annotation_text="최근가")
+                fig.update_layout(height=300, showlegend=False)
+                st.plotly_chart(fig, use_container_width=True, key='small_spread_hist')
+
+            with col2:
+                st.markdown("### 🔄 주문 타입별 분포")
+                type_counts = small_spread['order_type'].value_counts()
+                fig = px.pie(
+                    values=type_counts.values,
+                    names=type_counts.index,
+                    color_discrete_map={'구매': '#10b981', '판매': '#ef4444'}
+                )
+                fig.update_layout(height=300)
+                st.plotly_chart(fig, use_container_width=True, key='small_spread_pie')
+
+            # TOP 20 테이블
+            st.markdown("### 🏆 TOP 20 작은 스프레드 주문")
+            display_cols = small_spread_sorted[
+                ['song_name', 'song_artist', 'order_type', 'order_price', 'recent_price',
+                 'spread_rate', 'expected_yield', 'liquidity_score', 'signal']
+            ]
+
+            display_cols.columns = ['곡명', '아티스트', '타입', '주문가', '최근가',
+                                    '스프레드율(%)', '수익률(%)', '유동성', '시그널']
+
+            st.dataframe(
+                display_cols.style.format({
+                    '주문가': '{:,.0f}원',
+                    '최근가': '{:,.0f}원',
+                    '스프레드율(%)': '{:.2f}%',
+                    '수익률(%)': '{:.2f}%',
+                    '유동성': '{:.1f}'
+                }).background_gradient(subset=['스프레드율(%)'], cmap='RdYlGn_r'),
+                hide_index=True,
+                use_container_width=True
+            )
+
+            st.info(f"💡 **발견**: {len(small_spread)}개의 작은 스프레드 주문 (±5% 이내, 즉시 체결 가능성 높음)")
+        else:
+            st.warning("⚠️ 현재 작은 스프레드 조건을 만족하는 주문이 없습니다.")
+
+    with tab5:
         st.subheader("🎯 가치 투자 기회 분석")
         st.markdown("**저평가 + 고수익 + 적정 유동성 조합 발견**")
 
         # 가치 투자 조건 필터링
         value_opportunities = filtered_df[
-            (filtered_df['premium'] < -10) &
-            (filtered_df['normalized_yield'] > 7) &
+            (filtered_df['spread_rate'] < -10) &
+            (filtered_df['expected_yield'] > 7) &
             (filtered_df['liquidity_score'] > 30) &
             (filtered_df['order_type'] == '구매')
         ].copy()
@@ -514,14 +645,14 @@ def main():
             # 3D 스캐터 플롯
             fig = px.scatter(
                 value_opportunities,
-                x='premium',
-                y='normalized_yield',
+                x='spread_rate',
+                y='expected_yield',
                 size='liquidity_score',
                 color='signal',
                 hover_data=['song_name', 'song_artist', 'order_price'],
                 labels={
-                    'premium': '프리미엄율 (%)',
-                    'normalized_yield': '정규화 수익률 (%)',
+                    'spread_rate': '스프레드율 (%)',
+                    'expected_yield': '예상 수익률 (%)',
                     'liquidity_score': '유동성 점수'
                 },
                 title=f'가치 투자 기회 ({len(value_opportunities)}개 발견)',
@@ -533,27 +664,27 @@ def main():
             fig.update_layout(height=400)
             st.plotly_chart(fig, use_container_width=True, key='value_scatter')
 
-            # 종합 점수 계산 (프리미엄율 절대값 + 수익률 + 유동성/10)
+            # 종합 점수 계산 (스프레드율 절대값 + 수익률 + 유동성/10)
             value_opportunities['투자점수'] = (
-                abs(value_opportunities['premium']) * 0.3 +
-                value_opportunities['normalized_yield'] * 0.5 +
+                abs(value_opportunities['spread_rate']) * 0.3 +
+                value_opportunities['expected_yield'] * 0.5 +
                 value_opportunities['liquidity_score'] * 0.2
             )
 
             # TOP 20 테이블
             st.markdown("### 🏆 TOP 20 투자 기회")
             top20 = value_opportunities.nlargest(20, '투자점수')[
-                ['song_name', 'song_artist', 'order_price', 'premium',
-                 'normalized_yield', 'liquidity_score', '투자점수', 'signal']
+                ['song_name', 'song_artist', 'order_price', 'spread_rate',
+                 'expected_yield', 'liquidity_score', '투자점수', 'signal']
             ]
 
-            top20.columns = ['곡명', '아티스트', '주문가', '프리미엄율(%)',
+            top20.columns = ['곡명', '아티스트', '주문가', '스프레드율(%)',
                             '수익률(%)', '유동성', '투자점수', '시그널']
 
             st.dataframe(
                 top20.style.format({
                     '주문가': '{:,.0f}원',
-                    '프리미엄율(%)': '{:.2f}%',
+                    '스프레드율(%)': '{:.2f}%',
                     '수익률(%)': '{:.2f}%',
                     '유동성': '{:.1f}',
                     '투자점수': '{:.1f}'
@@ -562,11 +693,11 @@ def main():
                 use_container_width=True
             )
 
-            st.info(f"💡 **발견**: {len(value_opportunities)}개의 저평가 고수익 기회 (프리미엄율 < -10%, 수익률 > 7%, 유동성 > 30점)")
+            st.info(f"💡 **발견**: {len(value_opportunities)}개의 저평가 고수익 기회 (스프레드율 < -10%, 수익률 > 7%, 유동성 > 30점)")
         else:
             st.warning("⚠️ 현재 가치 투자 조건을 만족하는 주문이 없습니다.")
 
-    with tab5:
+    with tab6:
         st.subheader("📚 저작권 카테고리별 시장 분석")
         st.markdown("**저작재산권 vs 저작인접권 투자 특성 비교**")
 
@@ -583,7 +714,7 @@ def main():
                     st.markdown(f"### {category}")
                     st.metric("총 주문 수", f"{len(cat_df):,}개")
                     st.metric("평균 주문가", f"{cat_df['order_price'].mean():,.0f}원")
-                    st.metric("평균 수익률", f"{cat_df['normalized_yield'].mean():.2f}%")
+                    st.metric("평균 수익률", f"{cat_df['expected_yield'].mean():.2f}%")
                     st.metric("평균 유동성", f"{cat_df['liquidity_score'].mean():.1f}점")
                     st.metric("평균 로열티율", f"{cat_df['order_royalty_rate'].mean()*100:.2f}%")
 
@@ -613,9 +744,9 @@ def main():
                 fig = px.box(
                     filtered_df,
                     x='song_category',
-                    y='normalized_yield',
+                    y='expected_yield',
                     color='song_category',
-                    labels={'normalized_yield': '수익률 (%)', 'song_category': '카테고리'},
+                    labels={'expected_yield': '수익률 (%)', 'song_category': '카테고리'},
                     color_discrete_map={
                         '저작재산권': '#3b82f6',
                         '저작인접권': '#f59e0b'
@@ -643,7 +774,7 @@ def main():
         else:
             st.warning("카테고리 데이터가 없습니다.")
 
-    with tab6:
+    with tab7:
         st.subheader("⏰ 시간대별 주문 패턴 분석")
         st.markdown("**언제 주문이 많이 나오는지, 어떤 시간대가 유리한지 분석**")
 
@@ -669,18 +800,18 @@ def main():
             st.plotly_chart(fig, use_container_width=True, key='hourly_orders')
 
         with col2:
-            st.markdown("### 📈 시간대별 평균 프리미엄율")
-            hourly_premium = time_df.groupby('시간대')['premium'].mean().reset_index()
+            st.markdown("### 📈 시간대별 평균 스프레드율")
+            hourly_spread = time_df.groupby('시간대')['spread_rate'].mean().reset_index()
             fig = px.line(
-                hourly_premium,
+                hourly_spread,
                 x='시간대',
-                y='premium',
+                y='spread_rate',
                 markers=True,
-                labels={'시간대': '시간 (0-23시)', 'premium': '평균 프리미엄율 (%)'}
+                labels={'시간대': '시간 (0-23시)', 'spread_rate': '평균 스프레드율 (%)'}
             )
             fig.add_hline(y=0, line_dash="dash", line_color="red", annotation_text="적정가")
             fig.update_layout(height=300)
-            st.plotly_chart(fig, use_container_width=True, key='hourly_premium')
+            st.plotly_chart(fig, use_container_width=True, key='hourly_spread')
 
         # 시간대별 구매/판매 비율
         st.markdown("---")
@@ -705,14 +836,14 @@ def main():
 
         # 시간대별 평균 수익률
         st.markdown("### 💰 시간대별 평균 수익률")
-        hourly_yield = time_df.groupby('시간대')['normalized_yield'].mean().reset_index()
+        hourly_yield = time_df.groupby('시간대')['expected_yield'].mean().reset_index()
 
         fig = px.bar(
             hourly_yield,
             x='시간대',
-            y='normalized_yield',
-            labels={'시간대': '시간 (0-23시)', 'normalized_yield': '평균 수익률 (%)'},
-            color='normalized_yield',
+            y='expected_yield',
+            labels={'시간대': '시간 (0-23시)', 'expected_yield': '평균 수익률 (%)'},
+            color='expected_yield',
             color_continuous_scale='Viridis'
         )
         fig.update_layout(height=350)
@@ -720,28 +851,28 @@ def main():
 
         # 인사이트
         peak_hour = hourly_counts.loc[hourly_counts['주문수'].idxmax(), '시간대']
-        best_premium_hour = hourly_premium.loc[hourly_premium['premium'].idxmin(), '시간대']
-        best_yield_hour = hourly_yield.loc[hourly_yield['normalized_yield'].idxmax(), '시간대']
+        best_spread_hour = hourly_spread.loc[hourly_spread['spread_rate'].idxmin(), '시간대']
+        best_yield_hour = hourly_yield.loc[hourly_yield['expected_yield'].idxmax(), '시간대']
 
         st.info(f"""
         💡 **시간대 인사이트**:
         - 📊 가장 활발한 시간: **{peak_hour}시** (주문 {hourly_counts.loc[hourly_counts['시간대']==peak_hour, '주문수'].values[0]}건)
-        - 📉 가장 저평가 시간: **{best_premium_hour}시** (평균 프리미엄율 {hourly_premium.loc[hourly_premium['시간대']==best_premium_hour, 'premium'].values[0]:.2f}%)
-        - 💰 가장 고수익 시간: **{best_yield_hour}시** (평균 수익률 {hourly_yield.loc[hourly_yield['시간대']==best_yield_hour, 'normalized_yield'].values[0]:.2f}%)
+        - 📉 가장 저평가 시간: **{best_spread_hour}시** (평균 스프레드율 {hourly_spread.loc[hourly_spread['시간대']==best_spread_hour, 'spread_rate'].values[0]:.2f}%)
+        - 💰 가장 고수익 시간: **{best_yield_hour}시** (평균 수익률 {hourly_yield.loc[hourly_yield['시간대']==best_yield_hour, 'expected_yield'].values[0]:.2f}%)
         """)
 
-    with tab7:
+    with tab8:
         st.subheader("전체 데이터")
 
         # 표시할 컬럼 선택
         display_df = filtered_df[
             ['order_date', 'song_name', 'song_artist', 'order_type', 'order_price',
-             'recent_price', 'normalized_yield', 'premium', 'liquidity_score', 'signal']
+             'recent_price', 'expected_yield', 'spread_rate', 'liquidity_score', 'signal']
         ].copy()
 
         # 컬럼명 변경
         display_df.columns = ['주문시간', '곡명', '아티스트', '타입', '주문가',
-                              '최근가', '수익률(%)', '프리미엄율(%)', '유동성', '시그널']
+                              '최근가', '수익률(%)', '스프레드율(%)', '유동성', '시그널']
 
         # 검색 기능
         search = st.text_input("🔍 곡명/아티스트 검색", "")
@@ -756,7 +887,7 @@ def main():
                 '주문가': '{:,.0f}원',
                 '최근가': '{:,.0f}원',
                 '수익률(%)': '{:.2f}%',
-                '프리미엄율(%)': '{:.2f}%',
+                '스프레드율(%)': '{:.2f}%',
                 '유동성': '{:.1f}'
             }),
             hide_index=True,

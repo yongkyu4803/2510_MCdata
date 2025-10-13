@@ -24,39 +24,39 @@ class MetricsEngine:
         self.logger = setup_logger(__name__, "metrics_engine.log")
         self.reference_price = REFERENCE_PRICE
 
-    def calculate_premium(self, order_price: float, recent_price: float) -> Optional[float]:
+    def calculate_spread_rate(self, order_price: float, recent_price: float) -> Optional[float]:
         """
-        프리미엄율 계산
+        스프레드율 계산
 
-        프리미엄율 (%) = (order_price - recent_price) / recent_price × 100
+        스프레드율 (%) = (order_price - recent_price) / recent_price × 100
 
         Args:
             order_price: 주문 가격
             recent_price: 최근 체결가
 
         Returns:
-            프리미엄율 (%) 또는 None
+            스프레드율 (%) 또는 None
         """
         try:
             if recent_price == 0:
                 return None
 
-            premium = ((order_price - recent_price) / recent_price) * 100
-            return round(premium, 2)
+            spread_rate = ((order_price - recent_price) / recent_price) * 100
+            return round(spread_rate, 2)
 
         except (TypeError, ZeroDivisionError):
             return None
 
-    def calculate_normalized_yield(
+    def calculate_expected_yield(
         self,
         order_royalty_rate: float,
         order_price: float,
         reference_price: Optional[float] = None
     ) -> Optional[float]:
         """
-        정규화 수익률 계산
+        예상 수익률 계산
 
-        정규화 수익률 (%) = (order_royalty_rate × 기준단가) / order_price × 100
+        예상 수익률 (%) = (order_royalty_rate × 기준단가) / order_price × 100
 
         Args:
             order_royalty_rate: 1년 수익률 (0.08 = 8%)
@@ -64,16 +64,16 @@ class MetricsEngine:
             reference_price: 기준단가 (기본값: REFERENCE_PRICE)
 
         Returns:
-            정규화 수익률 (%) 또는 None
+            예상 수익률 (%) 또는 None
         """
         try:
             if order_price == 0:
                 return None
 
             ref_price = reference_price or self.reference_price
-            normalized_yield = (order_royalty_rate * ref_price / order_price) * 100
+            expected_yield = (order_royalty_rate * ref_price / order_price) * 100
 
-            return round(normalized_yield, 2)
+            return round(expected_yield, 2)
 
         except (TypeError, ZeroDivisionError):
             return None
@@ -268,36 +268,68 @@ class MetricsEngine:
             self.logger.warning(f"빈도 점수 계산 실패: {e}")
             return 50.0
 
+    def calculate_fair_value(
+        self,
+        order_royalty_rate: float,
+        reference_price: Optional[float] = None
+    ) -> float:
+        """
+        공정가치 계산 (최근가 평가 기준)
+
+        공정가치 = 저작권료율 × 기준단가
+
+        Args:
+            order_royalty_rate: 1년 수익률 (0.08 = 8%)
+            reference_price: 기준단가 (기본값: REFERENCE_PRICE)
+
+        Returns:
+            공정가치
+        """
+        ref_price = reference_price or self.reference_price
+        return order_royalty_rate * ref_price
+
     def generate_signal(
         self,
-        premium: Optional[float],
-        liquidity_score: float
+        spread_rate: Optional[float],
+        liquidity_score: float,
+        recent_price: Optional[float] = None,
+        fair_value: Optional[float] = None
     ) -> str:
         """
         시그널 생성
 
         조건:
-        - 저평가: 프리미엄율 < -10%
-        - 고평가: 프리미엄율 > 10%
+        - 저평가: 최근가가 공정가치 대비 -10% 이하 (저평가된 시장)
+        - 고평가: 최근가가 공정가치 대비 +10% 이상 (고평가된 시장)
         - 유동성↑: 유동성 점수 > 80
         - 유동성↓: 유동성 점수 < 30
         - 주의: 고평가 + 유동성↓
         - 보통: 그 외
 
         Args:
-            premium: 프리미엄율 (%)
+            spread_rate: 스프레드율 (%) - 하위호환성 유지
             liquidity_score: 유동성 점수
+            recent_price: 최근 체결가
+            fair_value: 공정가치
 
         Returns:
             시그널 문자열
         """
         signals = []
 
-        # 프리미엄율 기반 시그널
-        if premium is not None:
-            if premium < PREMIUM_THRESHOLD_LOW:
+        # 최근가 기준 평가 (공정가치 대비)
+        if recent_price is not None and fair_value is not None and fair_value > 0:
+            valuation_ratio = ((recent_price - fair_value) / fair_value) * 100
+
+            if valuation_ratio < PREMIUM_THRESHOLD_LOW:  # -10% 이하
                 signals.append("저평가")
-            elif premium > PREMIUM_THRESHOLD_HIGH:
+            elif valuation_ratio > PREMIUM_THRESHOLD_HIGH:  # +10% 이상
+                signals.append("고평가")
+        # 하위호환성: 공정가치가 없으면 기존 스프레드율 방식 사용
+        elif spread_rate is not None:
+            if spread_rate < PREMIUM_THRESHOLD_LOW:
+                signals.append("저평가")
+            elif spread_rate > PREMIUM_THRESHOLD_HIGH:
                 signals.append("고평가")
 
         # 유동성 기반 시그널
@@ -307,7 +339,8 @@ class MetricsEngine:
             signals.append("유동성↓")
 
         # 주의 시그널 (고평가 + 유동성 낮음)
-        if premium is not None and premium > PREMIUM_THRESHOLD_HIGH and liquidity_score < LIQUIDITY_LOW_SCORE:
+        is_overvalued = "고평가" in signals
+        if is_overvalued and liquidity_score < LIQUIDITY_LOW_SCORE:
             return "주의"
 
         # 시그널 조합
@@ -339,17 +372,19 @@ class MetricsEngine:
             song_name = safe_get(order, "song_name", "")
 
             # 지표 계산
-            premium = self.calculate_premium(order_price, recent_price)
-            normalized_yield = self.calculate_normalized_yield(order_royalty_rate, order_price)
+            spread_rate = self.calculate_spread_rate(order_price, recent_price)
+            expected_yield = self.calculate_expected_yield(order_royalty_rate, order_price)
             liquidity_score = self.calculate_liquidity_score(all_orders, song_name)
-            signal = self.generate_signal(premium, liquidity_score)
+            fair_value = self.calculate_fair_value(order_royalty_rate)
+            signal = self.generate_signal(spread_rate, liquidity_score, recent_price, fair_value)
 
             # 결과 생성
             result = order.copy()
             result.update({
-                "premium": premium,
-                "normalized_yield": normalized_yield,
+                "spread_rate": spread_rate,
+                "expected_yield": expected_yield,
                 "liquidity_score": liquidity_score,
+                "fair_value": fair_value,
                 "signal": signal
             })
 

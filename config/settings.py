@@ -31,14 +31,16 @@ COLLECTION_INTERVAL_MINUTES = 5  # 데이터 수집 주기 (분)
 DAILY_REPORT_TIME = "18:00"  # 일일 리포트 생성 시간
 
 # Metrics Configuration
-PREMIUM_THRESHOLD_HIGH = 10.0  # 고평가 기준 (%)
-PREMIUM_THRESHOLD_LOW = -10.0  # 저평가 기준 (%)
+PREMIUM_THRESHOLD_HIGH = 10.0  # 고평가 기준 (%) - 하위호환성 유지
+PREMIUM_THRESHOLD_LOW = -10.0  # 저평가 기준 (%) - 하위호환성 유지
+SPREAD_THRESHOLD_HIGH = 10.0  # 고평가 기준 (%)
+SPREAD_THRESHOLD_LOW = -10.0  # 저평가 기준 (%)
 LIQUIDITY_HIGH_SCORE = 80  # 유동성 높음 기준
 LIQUIDITY_LOW_SCORE = 30  # 유동성 낮음 기준
 REFERENCE_PRICE = 10000  # 정규화 수익률 계산 기준가
 
 # Alert Configuration
-ALERT_PREMIUM_THRESHOLD = 3.0  # 프리미엄율 알림 기준 (%)
+ALERT_SPREAD_THRESHOLD = 3.0  # 스프레드율 알림 기준 (%)
 ALERT_YIELD_CHANGE = 2.0  # 수익률 변동 알림 기준 (%)
 ALERT_TIME_WINDOW = 10  # 변동 감지 시간 윈도우 (분)
 

@@ -8,7 +8,7 @@
 ## 1️⃣ 프로젝트 개요
 
 **목표:**
-뮤직카우의 공개 거래 데이터를 수집·분석하여 **수익률, 프리미엄율, 유동성 지표**를 자동 계산하고,
+뮤직카우의 공개 거래 데이터를 수집·분석하여 **수익률, 괴리율, 유동성 지표**를 자동 계산하고,
 하루 단위 리포트 및 알림 기능을 제공하는 경량 분석 파이프라인을 구축한다.
 
 **핵심 가치:**
@@ -33,35 +33,15 @@
 
 ### [1단계] **데이터 수집 (Collector)**
 
-* **입력 소스:**
-  * **공식 API 엔드포인트:** `https://data.musicow.com/files/v1/market/orders.json`
-  * **업데이트 주기:** 1분마다 갱신 (매일 00:00 초기화)
-  * **제공 범위:** 당일 마켓 주문 데이터 (베타 서비스)
-
+* **입력 소스:** 뮤직카우 JSON 피드 (공식 마켓 데이터 또는 크롤링)
 * **핵심 필드:**
+  `order_no, song_name, order_type, order_price, recent_price, order_royalty_rate, order_date`
+* **주기:**
 
-| 필드명 | 타입 | 설명 | 예시 |
-|--------|------|------|------|
-| `order_no` | string | 고유 주문 ID | "e6a7cc6f5cf13842..." |
-| `song_name` | string | 곡 제목 | "발작 (發作)" |
-| `song_artist` | string | 아티스트명 | "원티드" |
-| `song_category` | string | 자산 유형 | "저작재산권" |
-| `order_type` | string | 주문 구분 | "구매" / "판매" |
-| `order_price` | integer | 주문 가격 (1조각 당) | 13600 |
-| `order_count` | integer | 주문 수량 | 1 |
-| `leaves_count` | integer | 잎사귀 수량 | 1 |
-| `order_status` | string | 주문 상태 | "대기" / "완료" / "취소" |
-| `order_royalty_rate` | float | 1년 수익률 | 0.08 |
-| `order_date` | datetime | 주문 시각 | "2025-10-05 18:53:56" |
-| `recent_price` | integer | 최근 체결가 | 13300 |
-| `url_link` | string | 곡 거래 페이지 직접 링크 | "https://..." |
-
-* **수집 주기:**
-
-  * 실시간 모드: 1~5분 단위 폴링 (API 업데이트 주기 고려)
+  * 실시간 모드: 5분 단위 폴링
   * 데일리 리포트 모드: 매일 18:00 스냅샷
 * **출력:**
-  `/data/raw/YYYYMMDD_HHMM_orders.json`
+  `/data/raw/YYYYMMDD_orders.json`
 
 ---
 
@@ -72,7 +52,7 @@
 
 | 지표명              | 정의                                                | 목적           |
 | ---------------- | ------------------------------------------------- | ------------ |
-| `프리미엄율 (%)`        | (order_price - recent_price) / recent_price × 100 | 시장 과열·저평가 탐지 |
+| `괴리율 (%)`        | (order_price - recent_price) / recent_price × 100 | 시장 과열·저평가 탐지 |
 | `정규화 수익률 (%)`    | (order_royalty_rate × 기준단가) / order_price × 100   | 실제 투자수익률 환산  |
 | `유동성 점수 (0~100)` | 스프레드·깊이·갱신빈도 기반 가중평균                              | 체결 가능성 평가    |
 | `Signal`         | 조건부 알림 (예: 저평가, 고평가, 유동성 부족 등)                    | 자동 알림 트리거    |
@@ -88,7 +68,7 @@
   * 섹션 구성:
 
     1. Top 수익률 (상위 3)
-    2. 프리미엄율 상/하위 3
+    2. 괴리율 상/하위 3
     3. 유동성 상/하위 3
   * 출력:
 
@@ -99,47 +79,23 @@
 
   * 조건:
 
-    * 프리미엄율 > ±3%
+    * 괴리율 > ±3%
     * 수익률 변동 > 2% (10분 내)
   * 알림 수단: 콘솔, Slack, 또는 Telegram Webhook
 
 ---
 
-## 4️⃣ 데이터 구조
-
-### **원본 JSON 구조 (API 응답)**
-
-```json
-[
-  {
-    "order_no": "e6a7cc6f5cf13842bb531c272c83717f",
-    "song_name": "발작 (發作)",
-    "song_artist": "원티드",
-    "song_category": "저작재산권",
-    "order_type": "판매",
-    "order_price": 13600,
-    "order_count": 1,
-    "leaves_count": 1,
-    "order_status": "대기",
-    "order_royalty_rate": 0.08,
-    "order_date": "2025-10-05 18:53:56",
-    "recent_price": 13300,
-    "url_link": "https://musicow-main.onelink.me/CE8d?pid=market_json&..."
-  }
-]
-```
-
-### **처리된 TSV 스키마 (스프레드시트용)**
+## 4️⃣ 데이터 구조 (TSV 스키마 예시)
 
 ```
-time	song	artist	side	price	recent	yield(%)	premium(%)	liquidity	signal	url
-2025-10-05T18:53:56	발작(發作)	원티드	판매	13600	13300	8.0	2.26	65	보통	https://musicow.com/song/678
-2025-10-05T18:53:43	발작(發作)	원티드	구매	11800	13300	9.2	-11.28	82	저평가	https://musicow.com/song/678
+time	song	side	price	recent	yield(%)	premium(%)	liquidity	score	signal	url
+2025-10-05T18:53:56	발작(發作)	판매	13600	13300	8.0	2.26	65	보통	https://musicow.com/song/678
+2025-10-05T18:53:43	발작(發作)	구매	11800	13300	9.2	-11.28	82	저평가	
 ```
 
 * **signal 값 예시:**
 
-  * `저평가`, `고평가`, `유동성↑`, `유동성↓`, `보통`, `주의`
+  * `저평가`, `고평가`, `유동성↑`, `유동성↓`, `주의`
 
 ---
 
@@ -162,7 +118,7 @@ time	song	artist	side	price	recent	yield(%)	premium(%)	liquidity	signal	url
 ```
 [JSON 수집]
       ↓
-[Metrics 계산: 프리미엄율, 수익률, 유동성]
+[Metrics 계산: 괴리율, 수익률, 유동성]
       ↓
 [TSV/MD 리포트 생성]
       ↓
@@ -186,16 +142,9 @@ time	song	artist	side	price	recent	yield(%)	premium(%)	liquidity	signal	url
 
 ## 8️⃣ 보안 및 규제 고려
 
-* **뮤직카우 공식 데이터 서비스:**
-  * **베타 서비스:** 현재 베타 단계로 운영 중
-  * **데이터 신뢰성:** 기술적 오류 또는 데이터 불일치 가능성 존재
-  * **투자 책임:** 투자 수익을 보장하지 않으며 참고용 데이터로만 활용
-  * **이용약관 준수:** 공식 API 이용 시 이용약관 내 데이터 접근 범위 준수
-
-* **시스템 제약:**
-  * **자동주문 금지:** 본 시스템은 분석 전용이며 매매 실행 기능 없음
-  * **데이터 저장:** 개인 로컬 또는 사내 서버만 사용, 외부 전송 없음
-  * **개인정보 보호:** 주문 데이터에 개인 식별 정보 미포함
+* **뮤직카우 API 이용 시:** 이용약관 내 데이터 접근 범위 준수
+* **자동주문 금지:** 본 시스템은 매매 실행 기능 없음
+* **데이터 저장:** 개인 로컬 또는 사내 서버만 사용, 외부 전송 없음
 
 ---
 
@@ -204,9 +153,8 @@ time	song	artist	side	price	recent	yield(%)	premium(%)	liquidity	signal	url
 | 구분      | 지표             | 목표            |
 | ------- | -------------- | ------------- |
 | 데이터 안정성 | 일일 JSON 파싱 성공률 | ≥ 95%         |
-| 정확도     | 프리미엄율 계산 정확도     | ±0.1% 이내      |
+| 정확도     | 괴리율 계산 정확도     | ±0.1% 이내      |
 | 사용성     | TSV 스프레드시트 호환성 | 100% 붙여넣기 성공  |
 | 리포트 가독성 | 주요 지표 3초 이내 인지 | 90% 이상 사용자 긍정 |
 
 ---
-
