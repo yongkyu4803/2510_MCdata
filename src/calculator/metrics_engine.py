@@ -386,6 +386,98 @@ class MetricsEngine:
             self.logger.error(f"지표 계산 실패: {e}")
             return order
 
+    def calculate_price_momentum(
+        self,
+        all_orders: List[Dict[str, Any]],
+        song_name: str
+    ) -> Dict[str, Any]:
+        """
+        가격 모멘텀 지표 계산
+
+        주문가와 최근 체결가의 괴리를 통해 현재 가격 추세 파악
+
+        Args:
+            all_orders: 전체 주문 데이터
+            song_name: 곡명
+
+        Returns:
+            모멘텀 지표 딕셔너리
+        """
+        try:
+            # 해당 곡의 대기 중인 주문만 필터링
+            song_orders = [
+                o for o in all_orders
+                if o.get("song_name") == song_name and o.get("order_status") == "대기"
+            ]
+
+            if not song_orders:
+                return {
+                    "momentum_score": 0.0,
+                    "buy_pressure": 0.0,
+                    "sell_pressure": 0.0,
+                    "waiting_count": 0,
+                    "price_range": (0, 0)
+                }
+
+            # 최근가 가져오기
+            recent_price = safe_get(song_orders[0], "recent_price", 0)
+            if recent_price <= 0:
+                return {
+                    "momentum_score": 0.0,
+                    "buy_pressure": 0.0,
+                    "sell_pressure": 0.0,
+                    "waiting_count": len(song_orders),
+                    "price_range": (0, 0)
+                }
+
+            # 매수/매도 주문 분리
+            buy_orders = [
+                o for o in song_orders
+                if o.get("order_type") == "구매"
+            ]
+            sell_orders = [
+                o for o in song_orders
+                if o.get("order_type") == "판매"
+            ]
+
+            # 매수 압력 계산: (최고 매수가 / 최근가 - 1) × 100
+            buy_pressure = 0.0
+            if buy_orders:
+                max_buy_price = max(o.get("order_price", 0) for o in buy_orders)
+                buy_pressure = ((max_buy_price / recent_price) - 1) * 100
+
+            # 매도 압력 계산: (최저 매도가 / 최근가 - 1) × 100
+            sell_pressure = 0.0
+            if sell_orders:
+                min_sell_price = min(o.get("order_price", float('inf')) for o in sell_orders)
+                if min_sell_price != float('inf'):
+                    sell_pressure = ((min_sell_price / recent_price) - 1) * 100
+
+            # 모멘텀 점수 = 매수 압력 - 매도 압력
+            momentum_score = buy_pressure - sell_pressure
+
+            # 가격 범위
+            all_prices = [o.get("order_price", 0) for o in song_orders]
+            price_range = (min(all_prices), max(all_prices))
+
+            return {
+                "momentum_score": round(momentum_score, 2),
+                "buy_pressure": round(buy_pressure, 2),
+                "sell_pressure": round(sell_pressure, 2),
+                "waiting_count": len(song_orders),
+                "price_range": price_range
+            }
+
+        except Exception as e:
+            self.logger.warning(f"가격 모멘텀 계산 실패 ({song_name}): {e}")
+            return {
+                "momentum_score": 0.0,
+                "buy_pressure": 0.0,
+                "sell_pressure": 0.0,
+                "waiting_count": 0,
+                "price_range": (0, 0)
+            }
+
     def calculate_batch_metrics(
         self,
         orders: List[Dict[str, Any]]

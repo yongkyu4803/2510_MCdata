@@ -459,8 +459,9 @@ def main():
     st.markdown("---")
 
     # 탭으로 테이블 분리
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
         "⚡ 즉시 체결",
+        "💹 가격 모멘텀",
         "🔥 고수익률 Top 10",
         "📉 저평가 Top 10",
         "💧 고유동성 Top 10",
@@ -555,6 +556,132 @@ def main():
             st.warning("⚠️ 현재 즉시 체결 조건을 만족하는 주문이 없습니다.")
 
     with tab2:
+        st.subheader("💹 가격 모멘텀 분석")
+        st.markdown("**매수/매도 주문가 괴리를 통한 가격 추세 추정**")
+
+        # 곡별 모멘텀 계산
+        from src.calculator.metrics_engine import MetricsEngine
+        engine = MetricsEngine()
+
+        # 대기 중인 주문만 사용
+        waiting_orders = filtered_df[filtered_df['order_status'] == '대기'].to_dict('records')
+
+        # 고유 곡 목록
+        unique_songs = filtered_df['song_name'].unique()
+
+        momentum_data = []
+        for song in unique_songs:
+            momentum = engine.calculate_price_momentum(waiting_orders, song)
+
+            # 해당 곡 정보 가져오기
+            song_info = filtered_df[filtered_df['song_name'] == song].iloc[0]
+
+            momentum_data.append({
+                'song_name': song,
+                'song_artist': song_info['song_artist'],
+                'recent_price': song_info['recent_price'],
+                'momentum_score': momentum['momentum_score'],
+                'buy_pressure': momentum['buy_pressure'],
+                'sell_pressure': momentum['sell_pressure'],
+                'waiting_count': momentum['waiting_count'],
+                'price_min': momentum['price_range'][0],
+                'price_max': momentum['price_range'][1]
+            })
+
+        momentum_df = pd.DataFrame(momentum_data)
+
+        if len(momentum_df) > 0:
+            # 모멘텀 절대값 기준 상위 20개
+            momentum_df['abs_momentum'] = abs(momentum_df['momentum_score'])
+            top_momentum = momentum_df.nlargest(20, 'abs_momentum')
+
+            # 요약 정보
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                positive_count = len(momentum_df[momentum_df['momentum_score'] > 0])
+                st.metric("상승 모멘텀 곡", f"{positive_count}개")
+            with col2:
+                negative_count = len(momentum_df[momentum_df['momentum_score'] < 0])
+                st.metric("하락 모멘텀 곡", f"{negative_count}개")
+            with col3:
+                avg_momentum = momentum_df['momentum_score'].mean()
+                st.metric("평균 모멘텀", f"{avg_momentum:.2f}%")
+            with col4:
+                st.metric("분석 곡 수", f"{len(momentum_df)}개")
+
+            st.markdown("---")
+
+            # 차트 섹션
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.markdown("### 📊 모멘텀 점수 분포")
+                fig = px.histogram(
+                    momentum_df,
+                    x='momentum_score',
+                    nbins=30,
+                    labels={'momentum_score': '모멘텀 점수 (%)'},
+                    color_discrete_sequence=['#3b82f6']
+                )
+                fig.add_vline(x=0, line_dash="dash", line_color="red", annotation_text="중립")
+                fig.update_layout(height=300, showlegend=False)
+                st.plotly_chart(fig, use_container_width=True, key='momentum_hist')
+
+            with col2:
+                st.markdown("### 🔄 모멘텀 추세 분포")
+                momentum_df['trend'] = momentum_df['momentum_score'].apply(
+                    lambda x: '강한 상승' if x > 10 else ('상승' if x > 0 else ('하락' if x > -10 else '강한 하락'))
+                )
+                trend_counts = momentum_df['trend'].value_counts()
+                fig = px.pie(
+                    values=trend_counts.values,
+                    names=trend_counts.index,
+                    color_discrete_map={
+                        '강한 상승': '#10b981',
+                        '상승': '#84cc16',
+                        '하락': '#f59e0b',
+                        '강한 하락': '#ef4444'
+                    }
+                )
+                fig.update_layout(height=300)
+                st.plotly_chart(fig, use_container_width=True, key='momentum_pie')
+
+            # TOP 20 테이블
+            st.markdown("### 🏆 TOP 20 모멘텀 주문")
+            display_cols = top_momentum[[
+                'song_name', 'song_artist', 'recent_price', 'momentum_score',
+                'buy_pressure', 'sell_pressure', 'waiting_count', 'price_min', 'price_max'
+            ]]
+
+            display_cols.columns = [
+                '곡명', '아티스트', '최근가', '모멘텀 점수(%)',
+                '매수 압력(%)', '매도 압력(%)', '대기 주문', '최저가', '최고가'
+            ]
+
+            st.dataframe(
+                display_cols.style.format({
+                    '최근가': '{:,.0f}원',
+                    '모멘텀 점수(%)': '{:.2f}%',
+                    '매수 압력(%)': '{:.2f}%',
+                    '매도 압력(%)': '{:.2f}%',
+                    '대기 주문': '{:.0f}개',
+                    '최저가': '{:,.0f}원',
+                    '최고가': '{:,.0f}원'
+                }).background_gradient(subset=['모멘텀 점수(%)'], cmap='RdYlGn', vmin=-20, vmax=20),
+                hide_index=True,
+                use_container_width=True
+            )
+
+            st.info(f"""
+            💡 **해석 가이드**:
+            - **모멘텀 점수 > 0**: 매수 압력이 매도 압력보다 강함 (상승 추세 가능성)
+            - **모멘텀 점수 < 0**: 매도 압력이 매수 압력보다 강함 (하락 추세 가능성)
+            - **절대값이 클수록**: 추세 강도가 높음
+            """)
+        else:
+            st.warning("⚠️ 모멘텀을 계산할 수 있는 주문이 없습니다.")
+
+    with tab3:
         st.subheader("🔥 고수익률 주문 (구매)")
         st.markdown("**투자금 대비 높은 예상 수익률을 제공하는 구매 주문**")
 
@@ -582,7 +709,7 @@ def main():
             use_container_width=True
         )
 
-    with tab3:
+    with tab4:
         st.subheader("📉 저평가 주문 (구매)")
         st.markdown("**시장가보다 낮은 가격에 매수할 수 있는 기회**")
 
@@ -610,7 +737,7 @@ def main():
             use_container_width=True
         )
 
-    with tab4:
+    with tab5:
         st.subheader("💧 고유동성 주문")
         st.markdown("**거래가 활발하여 쉽게 사고팔 수 있는 주문**")
 
@@ -636,7 +763,7 @@ def main():
             use_container_width=True
         )
 
-    with tab5:
+    with tab6:
         st.subheader("🎯 가치 투자 기회 분석")
         st.markdown("**저평가 + 고수익 + 적정 유동성 조합 발견**")
 
@@ -704,7 +831,7 @@ def main():
         else:
             st.warning("⚠️ 현재 가치 투자 조건을 만족하는 주문이 없습니다.")
 
-    with tab6:
+    with tab7:
         st.subheader("📚 저작권 카테고리별 시장 분석")
         st.markdown("**저작재산권과 저작인접권의 가격, 수익률, 유동성 비교 분석**")
 
@@ -781,7 +908,7 @@ def main():
         else:
             st.warning("카테고리 데이터가 없습니다.")
 
-    with tab7:
+    with tab8:
         st.subheader("⏰ 시간대별 주문 패턴 분석")
         st.markdown("**시간대별 주문량, 스프레드율, 수익률 패턴으로 최적 거래시간 파악**")
 
@@ -868,7 +995,7 @@ def main():
         - 💰 가장 고수익 시간: **{best_yield_hour}시** (평균 수익률 {hourly_yield.loc[hourly_yield['시간대']==best_yield_hour, 'expected_yield'].values[0]:.2f}%)
         """)
 
-    with tab8:
+    with tab9:
         st.subheader("📋 전체 데이터")
         st.markdown("**모든 주문 데이터를 검색하고 CSV로 다운로드**")
 
