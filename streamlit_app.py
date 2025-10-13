@@ -189,14 +189,23 @@ def main():
     # 필터 적용 여부 선택
     use_filter = st.sidebar.checkbox("🔍 필터 사용", value=False)
 
+    # 기본값 설정
+    all_order_types = sorted(df['order_type'].unique().tolist()) if 'order_type' in df.columns else []
+    all_signals = sorted(df['signal'].unique().tolist()) if 'signal' in df.columns else []
+
+    # 스프레드율 범위 기본값 (계산된 데이터가 있는 경우만)
+    if 'spread_rate' in df.columns:
+        spread_min = float(df['spread_rate'].min())
+        spread_max = float(df['spread_rate'].max())
+    else:
+        spread_min = -50.0
+        spread_max = 50.0
+
     # 사이드바
     if use_filter:
         with st.sidebar:
             st.markdown("---")
             st.header("📊 필터 옵션")
-
-            # 주문 타입 옵션 준비
-            all_order_types = sorted(df['order_type'].unique().tolist())
 
             # 주문 타입 필터
             order_types = st.multiselect(
@@ -204,9 +213,6 @@ def main():
                 options=all_order_types,
                 default=all_order_types
             )
-
-            # 시그널 옵션 준비
-            all_signals = sorted(df['signal'].unique().tolist())
 
             # 시그널 필터
             signals = st.multiselect(
@@ -216,9 +222,6 @@ def main():
             )
 
             # 스프레드율 범위
-            spread_min = float(df['spread_rate'].min())
-            spread_max = float(df['spread_rate'].max())
-
             spread_range = st.slider(
                 "스프레드율 범위 (%)",
                 min_value=spread_min,
@@ -245,12 +248,9 @@ def main():
                 )
     else:
         # 필터 미사용 시 전체 데이터 사용
-        all_order_types = df['order_type'].unique().tolist()
-        all_signals = df['signal'].unique().tolist()
-
         order_types = all_order_types
         signals = all_signals
-        spread_range = (float(df['spread_rate'].min()), float(df['spread_rate'].max()))
+        spread_range = (spread_min, spread_max)
         enable_bulk_filter = False
         bulk_threshold = 10
 
@@ -280,6 +280,10 @@ def main():
 
         # 대량 주문 정보 추가
         filtered_df['order_count'] = filtered_df['song_name'].map(song_counts).fillna(0).astype(int)
+    else:
+        # 필터 미사용 시 변수 초기화
+        bulk_songs = []
+        song_counts = pd.Series(dtype=int)
 
     # 사이드바에 필터링 결과 표시
     with st.sidebar:
