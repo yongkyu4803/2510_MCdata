@@ -460,10 +460,10 @@ def main():
 
     # 탭으로 테이블 분리
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+        "💹 작은 스프레드",
         "🔥 고수익률 Top 10",
         "📉 저평가 Top 10",
         "💧 고유동성 Top 10",
-        "💹 작은 스프레드",
         "🎯 가치 투자 기회",
         "📚 카테고리 분석",
         "⏰ 시간 패턴",
@@ -471,85 +471,6 @@ def main():
     ])
 
     with tab1:
-        st.subheader("고수익률 주문 (구매)")
-
-        # 구매 주문만 필터링
-        buy_df = filtered_df[filtered_df['order_type'] == '구매']
-        top_yield = buy_df.nlargest(10, 'expected_yield')[
-            ['song_name', 'song_artist', 'order_price', 'recent_price',
-             'expected_yield', 'spread_rate', 'liquidity_score', 'signal']
-        ]
-
-        # 컬럼명 변경
-        top_yield.columns = ['곡명', '아티스트', '주문가', '최근가',
-                             '수익률(%)', '스프레드율(%)', '유동성', '시그널']
-
-        # 스타일 적용
-        st.dataframe(
-            top_yield.style.format({
-                '주문가': '{:,.0f}원',
-                '최근가': '{:,.0f}원',
-                '수익률(%)': '{:.2f}%',
-                '스프레드율(%)': '{:.2f}%',
-                '유동성': '{:.1f}'
-            }).background_gradient(subset=['수익률(%)'], cmap='Greens'),
-            hide_index=True,
-            use_container_width=True
-        )
-
-    with tab2:
-        st.subheader("저평가 주문 (구매)")
-
-        # 구매 주문만 필터링
-        buy_df = filtered_df[filtered_df['order_type'] == '구매']
-        undervalued = buy_df.nsmallest(10, 'spread_rate')[
-            ['song_name', 'song_artist', 'order_price', 'recent_price',
-             'spread_rate', 'expected_yield', 'liquidity_score', 'signal']
-        ]
-
-        # 컬럼명 변경
-        undervalued.columns = ['곡명', '아티스트', '주문가', '최근가',
-                               '스프레드율(%)', '수익률(%)', '유동성', '시그널']
-
-        # 스타일 적용
-        st.dataframe(
-            undervalued.style.format({
-                '주문가': '{:,.0f}원',
-                '최근가': '{:,.0f}원',
-                '스프레드율(%)': '{:.2f}%',
-                '수익률(%)': '{:.2f}%',
-                '유동성': '{:.1f}'
-            }).background_gradient(subset=['스프레드율(%)'], cmap='Greens_r'),
-            hide_index=True,
-            use_container_width=True
-        )
-
-    with tab3:
-        st.subheader("고유동성 주문")
-
-        high_liquidity = filtered_df.nlargest(10, 'liquidity_score')[
-            ['song_name', 'song_artist', 'order_price', 'recent_price',
-             'liquidity_score', 'spread_rate', 'expected_yield', 'signal']
-        ]
-
-        # 컬럼명 변경
-        high_liquidity.columns = ['곡명', '아티스트', '주문가', '최근가',
-                                  '유동성', '스프레드율(%)', '수익률(%)', '시그널']
-
-        # 스타일 적용
-        st.dataframe(
-            high_liquidity.style.format({
-                '주문가': '{:,.0f}원',
-                '최근가': '{:,.0f}원',
-                '유동성': '{:.1f}',
-                '스프레드율(%)': '{:.2f}%',
-                '수익률(%)': '{:.2f}%'
-            }).background_gradient(subset=['유동성'], cmap='Blues'),
-            hide_index=True,
-            use_container_width=True
-        )
-
-    with tab4:
         st.subheader("💹 작은 스프레드 주문")
         st.markdown("**매수/매도 가격 차이가 작아 즉시 체결 가능성이 높은 주문**")
 
@@ -633,6 +554,88 @@ def main():
         else:
             st.warning("⚠️ 현재 작은 스프레드 조건을 만족하는 주문이 없습니다.")
 
+    with tab2:
+        st.subheader("🔥 고수익률 주문 (구매)")
+        st.markdown("**투자금 대비 높은 예상 수익률을 제공하는 구매 주문**")
+
+        # 구매 주문만 필터링
+        buy_df = filtered_df[filtered_df['order_type'] == '구매']
+        top_yield = buy_df.nlargest(10, 'expected_yield')[
+            ['song_name', 'song_artist', 'order_price', 'recent_price',
+             'expected_yield', 'spread_rate', 'liquidity_score', 'signal']
+        ]
+
+        # 컬럼명 변경
+        top_yield.columns = ['곡명', '아티스트', '주문가', '최근가',
+                             '수익률(%)', '스프레드율(%)', '유동성', '시그널']
+
+        # 스타일 적용
+        st.dataframe(
+            top_yield.style.format({
+                '주문가': '{:,.0f}원',
+                '최근가': '{:,.0f}원',
+                '수익률(%)': '{:.2f}%',
+                '스프레드율(%)': '{:.2f}%',
+                '유동성': '{:.1f}'
+            }).background_gradient(subset=['수익률(%)'], cmap='Greens'),
+            hide_index=True,
+            use_container_width=True
+        )
+
+    with tab3:
+        st.subheader("📉 저평가 주문 (구매)")
+        st.markdown("**시장가보다 낮은 가격에 매수할 수 있는 기회**")
+
+        # 구매 주문만 필터링
+        buy_df = filtered_df[filtered_df['order_type'] == '구매']
+        undervalued = buy_df.nsmallest(10, 'spread_rate')[
+            ['song_name', 'song_artist', 'order_price', 'recent_price',
+             'spread_rate', 'expected_yield', 'liquidity_score', 'signal']
+        ]
+
+        # 컬럼명 변경
+        undervalued.columns = ['곡명', '아티스트', '주문가', '최근가',
+                               '스프레드율(%)', '수익률(%)', '유동성', '시그널']
+
+        # 스타일 적용
+        st.dataframe(
+            undervalued.style.format({
+                '주문가': '{:,.0f}원',
+                '최근가': '{:,.0f}원',
+                '스프레드율(%)': '{:.2f}%',
+                '수익률(%)': '{:.2f}%',
+                '유동성': '{:.1f}'
+            }).background_gradient(subset=['스프레드율(%)'], cmap='Greens_r'),
+            hide_index=True,
+            use_container_width=True
+        )
+
+    with tab4:
+        st.subheader("💧 고유동성 주문")
+        st.markdown("**거래가 활발하여 쉽게 사고팔 수 있는 주문**")
+
+        high_liquidity = filtered_df.nlargest(10, 'liquidity_score')[
+            ['song_name', 'song_artist', 'order_price', 'recent_price',
+             'liquidity_score', 'spread_rate', 'expected_yield', 'signal']
+        ]
+
+        # 컬럼명 변경
+        high_liquidity.columns = ['곡명', '아티스트', '주문가', '최근가',
+                                  '유동성', '스프레드율(%)', '수익률(%)', '시그널']
+
+        # 스타일 적용
+        st.dataframe(
+            high_liquidity.style.format({
+                '주문가': '{:,.0f}원',
+                '최근가': '{:,.0f}원',
+                '유동성': '{:.1f}',
+                '스프레드율(%)': '{:.2f}%',
+                '수익률(%)': '{:.2f}%'
+            }).background_gradient(subset=['유동성'], cmap='Blues'),
+            hide_index=True,
+            use_container_width=True
+        )
+
     with tab5:
         st.subheader("🎯 가치 투자 기회 분석")
         st.markdown("**저평가 + 고수익 + 적정 유동성 조합 발견**")
@@ -703,7 +706,7 @@ def main():
 
     with tab6:
         st.subheader("📚 저작권 카테고리별 시장 분석")
-        st.markdown("**저작재산권 vs 저작인접권 투자 특성 비교**")
+        st.markdown("**저작재산권과 저작인접권의 가격, 수익률, 유동성 비교 분석**")
 
         if 'song_category' in filtered_df.columns:
             # 카테고리별 요약 통계
@@ -780,7 +783,7 @@ def main():
 
     with tab7:
         st.subheader("⏰ 시간대별 주문 패턴 분석")
-        st.markdown("**언제 주문이 많이 나오는지, 어떤 시간대가 유리한지 분석**")
+        st.markdown("**시간대별 주문량, 스프레드율, 수익률 패턴으로 최적 거래시간 파악**")
 
         # 시간대 데이터 추출 (복사본 생성으로 SettingWithCopyWarning 방지)
         time_df = filtered_df.copy()
@@ -866,7 +869,8 @@ def main():
         """)
 
     with tab8:
-        st.subheader("전체 데이터")
+        st.subheader("📋 전체 데이터")
+        st.markdown("**모든 주문 데이터를 검색하고 CSV로 다운로드**")
 
         # 표시할 컬럼 선택
         display_df = filtered_df[
